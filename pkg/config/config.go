@@ -69,7 +69,7 @@ func init() {
 	Datadog.SetDefault("enable_metadata_collection", true)
 	// BUG(massi): make the listener_windows.go module actually use the following:
 	Datadog.SetDefault("cmd_pipe_name", `\\.\pipe\ddagent`)
-	Datadog.SetDefault("check_runners", int64(4))
+	Datadog.SetDefault("check_runners", int64(0))
 	if IsContainerized() {
 		Datadog.SetDefault("proc_root", "/host/proc")
 	} else {

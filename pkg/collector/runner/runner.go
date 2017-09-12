@@ -9,6 +9,7 @@ import (
 	"expvar"
 	"fmt"
 	"path"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,7 +21,11 @@ import (
 	log "github.com/cihub/seelog"
 )
 
-const stopCheckTimeout time.Duration = 500 * time.Millisecond // Time to wait for a check to stop
+const (
+	DEFAULT_NUM_WORKERS               = 6
+	MAX_NUM_WORKERS                   = 100
+	stopCheckTimeout    time.Duration = 500 * time.Millisecond // Time to wait for a check to stop
+)
 
 // checkStats holds the stats from the running checks
 type runnerCheckStats struct {
@@ -43,20 +48,26 @@ func init() {
 
 // Runner ...
 type Runner struct {
-	pending       chan check.Check         // The channel where checks come from
-	done          chan bool                // Guard for the main loop
-	runningChecks map[check.ID]check.Check // the list of checks running
-	m             sync.Mutex               // to control races on runningChecks
-	running       uint32                   // Flag to see if the Runner is, well, running
+	pending          chan check.Check         // The channel where checks come from
+	done             chan bool                // Guard for the main loop
+	runningChecks    map[check.ID]check.Check // The list of checks running
+	m                sync.Mutex               // To control races on runningChecks
+	running          uint32                   // Flag to see if the Runner is, well, running
+	staticNumWorkers bool                     // Flag indicating if numWorkers is dynamically updated
 }
 
 // NewRunner takes the number of desired goroutines processing incoming checks.
 func NewRunner(numWorkers int) *Runner {
 	r := &Runner{
 		// initialize the channel
-		pending:       make(chan check.Check),
-		runningChecks: make(map[check.ID]check.Check),
-		running:       1,
+		pending:          make(chan check.Check),
+		runningChecks:    make(map[check.ID]check.Check),
+		running:          1,
+		staticNumWorkers: numWorkers != 0, // numWorkers == 0 is the default value in the config file
+	}
+
+	if !r.staticNumWorkers {
+		numWorkers = DEFAULT_NUM_WORKERS
 	}
 
 	// start the workers
@@ -67,6 +78,22 @@ func NewRunner(numWorkers int) *Runner {
 	log.Infof("Runner started with %d workers.", numWorkers)
 	runnerStats.Add("Workers", int64(numWorkers))
 	return r
+}
+
+// UpdateNumWorkers checks if the current number of workers is reasonable, and adds more if needed
+func (r *Runner) UpdateNumWorkers(numChecks int64) {
+	numWorkers, _ := strconv.Atoi(runnerStats.Get("Workers").String())
+
+	if r.staticNumWorkers || numWorkers >= MAX_NUM_WORKERS {
+		return
+	}
+
+	if numChecks-int64(numWorkers) > 5 {
+		// Add a worker
+		runnerStats.Add("Workers", 1)
+		log.Infof("Added worker to runner: now at " + runnerStats.Get("Workers").String() + " workers.")
+		go r.work()
+	}
 }
 
 // Stop closes the pending channel so all workers will exit their loop and terminate
