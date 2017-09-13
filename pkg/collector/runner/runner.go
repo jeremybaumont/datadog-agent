@@ -6,8 +6,11 @@
 package runner
 
 import (
+	"encoding/json"
 	"expvar"
 	"fmt"
+	"io/ioutil"
+
 	"path"
 	"strconv"
 	"sync"
@@ -22,9 +25,8 @@ import (
 )
 
 const (
-	DEFAULT_NUM_WORKERS               = 6
-	MAX_NUM_WORKERS                   = 100
-	stopCheckTimeout    time.Duration = 500 * time.Millisecond // Time to wait for a check to stop
+	defaultNumWorkers               = 6
+	stopCheckTimeout  time.Duration = 500 * time.Millisecond // Time to wait for a check to stop
 )
 
 // checkStats holds the stats from the running checks
@@ -67,7 +69,7 @@ func NewRunner(numWorkers int) *Runner {
 	}
 
 	if !r.staticNumWorkers {
-		numWorkers = DEFAULT_NUM_WORKERS
+		numWorkers = defaultNumWorkers
 	}
 
 	// start the workers
@@ -84,15 +86,39 @@ func NewRunner(numWorkers int) *Runner {
 func (r *Runner) UpdateNumWorkers(numChecks int64) {
 	numWorkers, _ := strconv.Atoi(runnerStats.Get("Workers").String())
 
-	if r.staticNumWorkers || numWorkers >= MAX_NUM_WORKERS {
+	if r.staticNumWorkers {
 		return
 	}
 
-	if numChecks-int64(numWorkers) > 5 {
-		// Add a worker
-		runnerStats.Add("Workers", 1)
-		log.Infof("Added worker to runner: now at " + runnerStats.Get("Workers").String() + " workers.")
-		go r.work()
+	d, e := ioutil.ReadFile("pkg/collector/runner/check_workers.json")
+	if e != nil {
+		log.Infof("Can't open check_workers.json: " + e.Error())
+		return
+	}
+
+	var ranges []interface{}
+	json.Unmarshal(d, &ranges)
+	for _, v := range ranges {
+		ran, _ := v.(map[string]interface{})
+		// Find which range the number of checks we're running falls in
+		if float64(numChecks) >= ran["min"].(float64) && float64(numChecks) <= ran["max"].(float64) {
+			added := 0
+			for {
+				if float64(numWorkers) >= ran["n"].(float64) {
+					break
+				}
+				// Add workers if we don't have enough for this range
+				runnerStats.Add("Workers", 1)
+				go r.work()
+				numWorkers++
+				added++
+			}
+			if added > 0 {
+				log.Infof("Currently running between "+strconv.FormatFloat(ran["min"].(float64), 'f', 0, 64)+
+					"-"+strconv.FormatFloat(ran["max"].(float64), 'f', 0, 64)+" checks. "+
+					"Added %d workers to runner: now at "+runnerStats.Get("Workers").String()+" workers.", added)
+			}
+		}
 	}
 }
 
