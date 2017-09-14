@@ -1,0 +1,120 @@
+Test 1
+	static, 4 runners
+
+	********* Starting the time efficiency test (single) *********
+	Time to run 5 checks: 0.001418185
+	Time to run 15 checks: 0.004662461
+	Time to run 25 checks: 0.008751068
+	Time to run 35 checks: 0.009687056
+	Time to run 45 checks: 0.013577663
+	Time to run 55 checks: 0.015888907
+	Time to run 100 checks: 0.030359394
+	Time to run 200 checks: 0.059075446
+	Time to run 300 checks: 0.089111762
+
+	********* Starting the time efficiency test (double) *********
+	Time to run 5 checks: 0.003265066
+	Time to run 15 checks: 0.010077577
+	Time to run 25 checks: 0.013930836
+	Time to run 35 checks: 0.020232512
+	Time to run 45 checks: 0.024834664
+	Time to run 55 checks: 0.03393275
+	Time to run 100 checks: 0.055976698
+	Time to run 200 checks: 0.119102546
+	Time to run 300 checks: 0.172619063
+
+	********* Starting memory test *********
+	At start:
+		Alloc = 2825	Sys = 7718	HeapAlloc = 2893352	HeapSys = 4882432	HeapObj = 47738
+	After 100 checks:
+		Alloc = 3158	Sys = 7718	HeapAlloc = 3233832	HeapSys = 4882432	HeapObj = 54390
+	After 200 checks:
+		Alloc = 3498	Sys = 7718	HeapAlloc = 3582728	HeapSys = 4882432	HeapObj = 61159
+	After 300 checks:
+		Alloc = 3836	Sys = 7718	HeapAlloc = 3928936	HeapSys = 4882432	HeapObj = 67909
+	After 400 checks:
+		Alloc = 977	Sys = 7718	HeapAlloc = 1001416	HeapSys = 4882432	HeapObj = 10164
+	Difference:
+		Alloc = -1848	Sys = 0	HeapAlloc = -1891936	HeapSys = 0	HeapObj = -37574
+
+Test 2
+	static, 30 runners
+
+	********* Starting the time efficiency test (single) *********
+	Time to run 5 checks: 0.003285188
+	Time to run 15 checks: 0.005615584
+	Time to run 25 checks: 0.011367925
+	Time to run 35 checks: 0.010401122
+	Time to run 45 checks: 0.018325664
+	Time to run 55 checks: 0.018322305
+	Time to run 100 checks: 0.040214011
+	Time to run 200 checks: 0.065601355
+	Time to run 300 checks: 0.088553226
+
+	********* Starting the time efficiency test (double) *********
+	Time to run 5 checks: 0.002495019
+	Time to run 15 checks: 0.00679076
+	Time to run 25 checks: 0.014047004
+	Time to run 35 checks: 0.020037231
+	Time to run 45 checks: 0.025351111
+	Time to run 55 checks: 0.033789194
+	Time to run 100 checks: 0.061073319
+	Time to run 200 checks: 0.119143241
+	Time to run 300 checks: 0.175914853
+
+	********* Starting memory test *********
+	At start:
+		Alloc = 3612	Sys = 7718	HeapAlloc = 3698744	HeapSys = 4816896	HeapObj = 62727
+	After 100 checks:
+		Alloc = 3889	Sys = 7718	HeapAlloc = 3982888	HeapSys = 4751360	HeapObj = 68331
+	After 200 checks:
+		Alloc = 1000	Sys = 7718	HeapAlloc = 1024520	HeapSys = 4751360	HeapObj = 10560
+	After 300 checks:
+		Alloc = 1321	Sys = 7718	HeapAlloc = 1353608	HeapSys = 4751360	HeapObj = 16991
+	After 400 checks:
+		Alloc = 1717	Sys = 7718	HeapAlloc = 1758328	HeapSys = 4751360	HeapObj = 24282
+	Difference:
+		Alloc = -1895	Sys = 0		HeapAlloc = -1940416	HeapSys = -65536	HeapObj = -38445
+
+Test 3
+	0-10:    4
+	11-25:  14
+	26-50:  25
+	51-75:  50
+	>75:    75
+
+	********* Starting the time efficiency test (single) *********
+	Time to run 5 checks: 0.003693853
+	Time to run 15 checks: 0.00929963
+	Time to run 25 checks: 0.01366717
+	Time to run 35 checks: 0.015556347
+	Time to run 45 checks: 0.014009621
+	Time to run 55 checks: 0.020302582
+	Time to run 100 checks: 0.028525238
+	Time to run 200 checks: 0.06497136
+	Time to run 300 checks: 0.090117525
+
+	********* Starting the time efficiency test (double) *********
+	Time to run 5 checks: 0.002261556
+	Time to run 15 checks: 0.007911885
+	Time to run 25 checks: 0.01812092
+	Time to run 35 checks: 0.023461694
+	Time to run 45 checks: 0.030647275
+	Time to run 55 checks: 0.038199717
+	Time to run 100 checks: 0.065763307
+	Time to run 200 checks: 0.169745974
+	Time to run 300 checks: 0.239136774
+
+	********* Starting memory test *********
+	At start:
+		Alloc = 1097	Sys = 8774	HeapAlloc = 1123920	HeapSys = 5963776	HeapObj = 14376
+	After 100 checks:
+		Alloc = 1107	Sys = 8774	HeapAlloc = 1133592	HeapSys = 5668864	HeapObj = 12679
+	After 200 checks:
+		Alloc = 1389	Sys = 8774	HeapAlloc = 1422408	HeapSys = 5636096	HeapObj = 18267
+	After 300 checks:
+		Alloc = 1603	Sys = 8774	HeapAlloc = 1641800	HeapSys = 5603328	HeapObj = 22655
+	After 400 checks:
+		Alloc = 2065	Sys = 8774	HeapAlloc = 2114600	HeapSys = 5603328	HeapObj = 31242
+	Difference:
+		Alloc = 967		Sys = 0		HeapAlloc = 990680	HeapSys = -360448		HeapObj = 16866

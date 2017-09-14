@@ -18,9 +18,15 @@ import (
 type TestCheck struct {
 	doErr  bool
 	hasRun bool
+	name   string
 }
 
-func (c *TestCheck) String() string                                     { return "TestCheck" }
+func (c *TestCheck) String() string {
+	if c.name != "" {
+		return c.name
+	}
+	return "TestCheck"
+}
 func (c *TestCheck) Stop()                                              {}
 func (c *TestCheck) Configure(check.ConfigData, check.ConfigData) error { return nil }
 func (c *TestCheck) Interval() time.Duration                            { return 1 }
@@ -29,6 +35,14 @@ func (c *TestCheck) Run() error {
 		msg := "A tremendous error occurred."
 		return errors.New(msg)
 	}
+
+	// Uncomment if running efficiency test (num_workers_test.go)
+	busyWait := 0
+	for i := 0; i < 1000000; i++ {
+		busyWait++
+	}
+	// time.Sleep(time.Millisecond * 100)
+
 	c.hasRun = true
 	return nil
 }
@@ -36,13 +50,13 @@ func (c *TestCheck) ID() check.ID         { return check.ID(c.String()) }
 func (c *TestCheck) GetWarnings() []error { return nil }
 
 func TestNewRunner(t *testing.T) {
-	r := NewRunner(1)
+	r := NewRunner()
 	assert.NotNil(t, r.pending)
 	assert.NotNil(t, r.runningChecks)
 }
 
 func TestStop(t *testing.T) {
-	r := NewRunner(1)
+	r := NewRunner()
 	r.Stop()
 	_, ok := <-r.pending
 	assert.False(t, ok)
@@ -52,12 +66,12 @@ func TestStop(t *testing.T) {
 }
 
 func TestGetChan(t *testing.T) {
-	r := NewRunner(1)
+	r := NewRunner()
 	assert.NotNil(t, r.GetChan())
 }
 
 func TestWork(t *testing.T) {
-	r := NewRunner(1)
+	r := NewRunner()
 	c1 := TestCheck{}
 	c2 := TestCheck{doErr: true}
 
@@ -67,7 +81,7 @@ func TestWork(t *testing.T) {
 	r.Stop()
 
 	// fake a check is already running
-	r = NewRunner(1)
+	r = NewRunner()
 	c3 := new(TestCheck)
 	r.runningChecks[c3.ID()] = c3
 	r.pending <- c3
@@ -86,7 +100,7 @@ func (tc *TimingoutCheck) Stop() {
 }
 
 func TestStopCheck(t *testing.T) {
-	r := NewRunner(1)
+	r := NewRunner()
 	err := r.StopCheck("foo")
 	assert.Nil(t, err)
 

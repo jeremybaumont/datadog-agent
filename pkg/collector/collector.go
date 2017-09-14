@@ -13,7 +13,6 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/collector/check"
 	"github.com/DataDog/datadog-agent/pkg/collector/runner"
 	"github.com/DataDog/datadog-agent/pkg/collector/scheduler"
-	"github.com/DataDog/datadog-agent/pkg/config"
 	log "github.com/cihub/seelog"
 )
 
@@ -24,18 +23,18 @@ const (
 
 // Collector abstract common operations about running a Check
 type Collector struct {
-	scheduler *scheduler.Scheduler
-	runner    *runner.Runner
-	checks    map[check.ID]check.Check
-	state     uint32
-	m         sync.RWMutex
-	numChecks int64
+	scheduler      *scheduler.Scheduler
+	runner         *runner.Runner
+	checks         map[check.ID]check.Check
+	state          uint32
+	m              sync.RWMutex
+	checkInstances int64
 }
 
 // NewCollector create a Collector instance and sets up the Python Environment
 func NewCollector(paths ...string) *Collector {
 	log.Debug("NewCollector")
-	run := runner.NewRunner(config.Datadog.GetInt("check_runners"))
+	run := runner.NewRunner()
 	sched := scheduler.NewScheduler(run.GetChan())
 
 	log.Debug("scheduler created")
@@ -44,11 +43,11 @@ func NewCollector(paths ...string) *Collector {
 	log.Debug("Creating collector")
 	log.Infof("Initializing python interpreter with paths: %v", paths)
 	c := &Collector{
-		scheduler: sched,
-		runner:    run,
-		checks:    make(map[check.ID]check.Check),
-		state:     started,
-		numChecks: int64(0),
+		scheduler:      sched,
+		runner:         run,
+		checks:         make(map[check.ID]check.Check),
+		state:          started,
+		checkInstances: int64(0),
 	}
 	pySetup(paths...)
 	log.Debug("created collector")
@@ -95,9 +94,9 @@ func (c *Collector) RunCheck(ch check.Check) (check.ID, error) {
 
 	// Track the total number of checks running (minus one-time checks) to have an appropriate number of workers
 	if ch.Interval() != 0 {
-		c.numChecks++
+		c.checkInstances++
 	}
-	c.runner.UpdateNumWorkers(c.numChecks)
+	c.runner.UpdateNumWorkers(c.checkInstances)
 
 	c.checks[ch.ID()] = ch
 	return ch.ID(), nil
