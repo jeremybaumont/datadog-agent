@@ -7,18 +7,20 @@ import (
 	"time"
 )
 
-var static = false
+// Testing configuration
+var testingEfficiency = false // Run this test
+var busyWait = true           // Run with busywait (vs lazy wait)
+var static = false            // Run with default num workers (vs dynamic)
+var prettyOutput = true       // Labelled test results
 
 // Efficiency test for the number of check workers running
-// Not capitalized because it shouldn't be included automatically (not a unit test)
+// Note: use the -v flag when testing to see the output
 func TestUpdateNumWorkers(t *testing.T) {
-	/*
-		To simulate 'real' checks, it's recommended to add a delay to the TestCheck Run() function
-		when running this test (note that this might cause other unit tests to fail though)
-			- ie time.Sleep(time.Millisecond * 100)
-		Note: use the -v flag when testing to see the output
-	*/
+	if !testingEfficiency {
+		return
+	}
 
+	// Run the time tests
 	double := false
 	for i := 0; i < 2; i++ {
 		if double {
@@ -27,41 +29,37 @@ func TestUpdateNumWorkers(t *testing.T) {
 			t.Log("********* Starting the time efficiency test (single) *********")
 		}
 
-		t5 := timeToComplete(5, double)
-		t15 := timeToComplete(15, double)
-		t25 := timeToComplete(25, double)
-		t35 := timeToComplete(35, double)
-		t45 := timeToComplete(45, double)
-		t55 := timeToComplete(55, double)
-		t100 := timeToComplete(100, double)
-		t200 := timeToComplete(200, double)
-		t300 := timeToComplete(300, double)
+		checksToRun := [11]int{5, 15, 25, 35, 45, 55, 65, 100, 200, 300, 400}
 
-		t.Logf("Time to run 5 checks: %v", t5.Seconds())
-		t.Logf("Time to run 15 checks: %v", t15.Seconds())
-		t.Logf("Time to run 25 checks: %v", t25.Seconds())
-		t.Logf("Time to run 35 checks: %v", t35.Seconds())
-		t.Logf("Time to run 45 checks: %v", t45.Seconds())
-		t.Logf("Time to run 55 checks: %v", t55.Seconds())
-		t.Logf("Time to run 100 checks: %v", t100.Seconds())
-		t.Logf("Time to run 200 checks: %v", t200.Seconds())
-		t.Logf("Time to run 300 checks: %v", t300.Seconds())
+		for _, n := range checksToRun {
+			ti := timeToComplete(n, double)
+
+			if prettyOutput {
+				t.Logf("Time to run %v checks: %v", n, ti.Seconds())
+			} else {
+				t.Logf("%v", ti.Seconds())
+			}
+		}
 
 		double = true
 	}
 
+	// Run the memory test
 	r := NewRunner()
 	curr, _ := strconv.Atoi(runnerStats.Get("Workers").String())
 	runnerStats.Add("Workers", int64(curr*-1))
 	m := &runtime.MemStats{}
-	before := &runtime.MemStats{}
 
 	t.Log("********* Starting memory test *********")
 	runtime.ReadMemStats(m)
-	runtime.ReadMemStats(before)
-	t.Logf("At start:")
-	t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
-		m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+
+	if prettyOutput {
+		t.Logf("At start:")
+		t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
+			m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+	} else {
+		t.Logf("%v\t%v\t%v\t%v\t%v\t", m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+	}
 
 	for i := 1; i < 500; i++ {
 		c := TestCheck{name: "TestCheck" + strconv.Itoa(i)}
@@ -72,17 +70,16 @@ func TestUpdateNumWorkers(t *testing.T) {
 
 		if i%100 == 0 {
 			runtime.ReadMemStats(m)
-			t.Logf("After %d checks:", i)
-			t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
-				m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+
+			if prettyOutput {
+				t.Logf("After %d checks:", i)
+				t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
+					m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+			} else {
+				t.Logf("%v\t%v\t%v\t%v\t%v\t", m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+			}
 		}
 	}
-
-	t.Logf("Difference:")
-	t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
-		(m.Alloc-before.Alloc)/1024, (m.Sys-before.Sys)/1024,
-		(m.HeapAlloc - before.HeapAlloc), (m.HeapSys - before.HeapSys),
-		(m.HeapObjects - before.HeapObjects))
 }
 
 func timeToComplete(numChecks int, runTwice bool) time.Duration {

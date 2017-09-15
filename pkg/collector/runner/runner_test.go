@@ -36,12 +36,18 @@ func (c *TestCheck) Run() error {
 		return errors.New(msg)
 	}
 
-	// Uncomment if running efficiency test (num_workers_test.go)
-	busyWait := 0
-	for i := 0; i < 1000000; i++ {
-		busyWait++
+	if testingEfficiency && busyWait {
+		start := time.Now()
+		now := time.Now()
+		for {
+			if now.Sub(start) > time.Millisecond*100 {
+				break
+			}
+			now = time.Now()
+		}
+	} else if testingEfficiency && !busyWait {
+		time.Sleep(time.Millisecond * 100)
 	}
-	// time.Sleep(time.Millisecond * 100)
 
 	c.hasRun = true
 	return nil
@@ -77,6 +83,8 @@ func TestWork(t *testing.T) {
 
 	r.pending <- &c1
 	r.pending <- &c2
+	// wait to be sure the worker had a chance to run
+	time.Sleep(time.Millisecond * 100)
 	assert.True(t, c1.hasRun)
 	r.Stop()
 
@@ -85,7 +93,6 @@ func TestWork(t *testing.T) {
 	c3 := new(TestCheck)
 	r.runningChecks[c3.ID()] = c3
 	r.pending <- c3
-	// wait to be sure the worker tried to run the check
 	time.Sleep(100 * time.Millisecond)
 	assert.False(t, c3.hasRun)
 }

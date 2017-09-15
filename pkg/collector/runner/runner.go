@@ -28,7 +28,7 @@ var Wg sync.WaitGroup
 
 const (
 	defaultNumWorkers               = 4
-	maxNumWorkers                   = 75
+	maxNumWorkers                   = 60
 	stopCheckTimeout  time.Duration = 500 * time.Millisecond // Time to wait for a check to stop
 )
 
@@ -104,14 +104,20 @@ func (r *Runner) UpdateNumWorkers(numChecks int64) {
 	switch {
 	case numChecks <= 10:
 		desiredNumWorkers = 4
+	case numChecks <= 15:
+		desiredNumWorkers = 10
 	case numChecks <= 25:
-		desiredNumWorkers = 14
-	case numChecks <= 50:
-		desiredNumWorkers = 25
-	case numChecks <= 75:
+		desiredNumWorkers = 20
+	case numChecks <= 35:
+		desiredNumWorkers = 30
+	case numChecks <= 55:
+		desiredNumWorkers = 35
+	case numChecks <= 65:
+		desiredNumWorkers = 40
+	case numChecks <= 100:
 		desiredNumWorkers = 50
 	default:
-		desiredNumWorkers = maxNumWorkers
+		desiredNumWorkers = maxNumWorkers // max = 60
 	}
 
 	// Add workers if we don't have enough for this range
