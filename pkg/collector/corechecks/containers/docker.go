@@ -17,11 +17,13 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/util/docker"
 )
 
+const dockerCheckName = "docker"
+
 type dockerConfig struct {
 	//Url                    string             `yaml:"url"`
-	//CollectEvent           bool               `yaml:"collect_events"`
-	//FilteredEventType      []string           `yaml:"filtered_event_types"`
-	CollectContainerSize bool `yaml:"collect_container_size"`
+	CollectEvent         bool     `yaml:"collect_events"`
+	FilteredEventType    []string `yaml:"filtered_event_types"`
+	CollectContainerSize bool     `yaml:"collect_container_size"`
 	//CustomCGroup           bool               `yaml:"custom_cgroups"`
 	//HealthServiceWhitelist []string           `yaml:"health_service_check_whitelist"`
 	//CollectContainerCount  bool               `yaml:"collect_container_count"`
@@ -47,8 +49,14 @@ type containerPerImage struct {
 }
 
 func (c *dockerConfig) Parse(data []byte) error {
+	// Default values
+	c.CollectEvent = true
+
 	if err := yaml.Unmarshal(data, c); err != nil {
 		return err
+	}
+	if len(c.FilteredEventType) == 0 {
+		c.FilteredEventType = []string{"top", "exec_create", "exec_start"}
 	}
 
 	return nil
@@ -56,8 +64,10 @@ func (c *dockerConfig) Parse(data []byte) error {
 
 // DockerCheck grabs docker metrics
 type DockerCheck struct {
-	lastWarnings []error
-	instance     *dockerConfig
+	lastWarnings   []error
+	instance       *dockerConfig
+	lastEventTime  time.Time
+	dockerHostname string
 }
 
 func updateContainerRunningCount(images map[string]*containerPerImage, c *docker.Container) {
@@ -185,6 +195,10 @@ func (d *DockerCheck) Run() error {
 
 	d.countAndWeightImages(sender)
 
+	if d.instance.CollectEvent {
+		d.reportEvents(sender)
+	}
+
 	sender.Commit()
 	return nil
 }
@@ -193,7 +207,7 @@ func (d *DockerCheck) Run() error {
 func (d *DockerCheck) Stop() {}
 
 func (d *DockerCheck) String() string {
-	return "docker"
+	return dockerCheckName
 }
 
 // Configure parses the check configuration and init the check
@@ -204,6 +218,11 @@ func (d *DockerCheck) Configure(config, initConfig check.ConfigData) error {
 	})
 	d.instance = &dockerConfig{}
 	d.instance.Parse(config)
+	var err error
+	d.dockerHostname, err = docker.GetHostname()
+	if err != nil {
+		log.Warnf("can't get hostname from docker, events will not have it: %s", err)
+	}
 	return nil
 }
 

@@ -1,7 +1,7 @@
 targets: [./pkg, ./cmd]
 
 agent:
-  build_include: [all]
+  build_include: [zlib, docker]
   build_exclude: []
 
 dogstatsd:
