@@ -110,7 +110,6 @@ func (d *DockerCheck) reportEvents(sender aggregator.Sender) error {
 	for _, bundle := range bundles {
 		ev, err := bundle.toDatadogEvent(d.dockerHostname)
 		ev.Tags = append(ev.Tags, d.instance.Tags...)
-		log.Debugf("got ev: %s", ev)
 
 		if err != nil {
 			log.Warnf("can't submit event: %s", err)
@@ -130,8 +129,6 @@ func (d *DockerCheck) aggregateEvents(events []*docker.ContainerEvent) (map[stri
 
 ITER_EVENT:
 	for _, event := range events {
-		log.Debugf("got event %s", event)
-
 		for _, action := range d.instance.FilteredEventType {
 			if event.Action == action {
 				filteredByType[action] = filteredByType[action] + 1
@@ -149,9 +146,6 @@ ITER_EVENT:
 	if len(filteredByType) > 0 {
 		log.Debugf("filtered out the following events: %s", formatStringIntMap(filteredByType))
 	}
-
-	log.Debugf("aggregated event: %s", eventsByImage)
-
 	return eventsByImage, nil
 }
 
