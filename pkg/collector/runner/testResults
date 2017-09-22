@@ -1,0 +1,14 @@
+=== RUN   TestUpdateNumWorkers
+1506070607157069650 [Debug] ********* Starting a single check *********
+1506070607157445444 [Info] Runner started with 4 workers.
+1506070607157693114 [Debug] Ready to process checks...
+1506070607157715025 [Info] Running check Check
+1506070607157720307 [Debug] Attempting to run a python check.
+1506070607157748955 [Debug] Ready to process checks...
+1506070607157771229 [Debug] Finished processing checks.
+1506070607157781875 [Debug] Ready to process checks...
+1506070607157793046 [Debug] Finished processing checks.
+1506070607157809365 [Debug] Ready to process checks...
+1506070607157831196 [Debug] Finished processing checks.
+exit status 2
+FAIL	github.com/DataDog/datadog-agent/pkg/collector/runner	0.031s
