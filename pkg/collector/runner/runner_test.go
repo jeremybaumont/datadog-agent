@@ -18,15 +18,9 @@ import (
 type TestCheck struct {
 	doErr  bool
 	hasRun bool
-	name   string
 }
 
-func (c *TestCheck) String() string {
-	if c.name != "" {
-		return c.name
-	}
-	return "TestCheck"
-}
+func (c *TestCheck) String() string                                     { return "TestCheck" }
 func (c *TestCheck) Stop()                                              {}
 func (c *TestCheck) Configure(check.ConfigData, check.ConfigData) error { return nil }
 func (c *TestCheck) Interval() time.Duration                            { return 1 }
@@ -34,19 +28,6 @@ func (c *TestCheck) Run() error {
 	if c.doErr {
 		msg := "A tremendous error occurred."
 		return errors.New(msg)
-	}
-
-	if testingEfficiency && busyWait {
-		start := time.Now()
-		now := time.Now()
-		for {
-			if now.Sub(start) > time.Millisecond*100 {
-				break
-			}
-			now = time.Now()
-		}
-	} else if testingEfficiency && !busyWait {
-		time.Sleep(time.Millisecond * 100)
 	}
 
 	c.hasRun = true
