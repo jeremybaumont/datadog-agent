@@ -42,6 +42,14 @@ type stickyLock struct {
 	locked uint32 // Flag set to 1 if the lock is locked, 0 otherwise
 }
 
+func newStickyLock() *stickyLock {
+	runtime.LockOSThread()
+	return &stickyLock{
+		gstate: python.PyGILState_Ensure(),
+		locked: 1,
+	}
+}
+
 func (sl *stickyLock) unlock() {
 	atomic.StoreUint32(&sl.locked, 0)
 	python.PyGILState_Release(sl.gstate)
@@ -69,40 +77,36 @@ func (nc *NumWorkersCheck) Run() error {
 	case pythonCheck:
 
 		log.Debugf("Attempting to run a python check.")
+		state := py.Initialize(".", "tests", "../dist")
 
 		// Lock the GIL while operating with go-python
+		gstate := newStickyLock()
+		defer gstate.unlock()
+
 		/*
-			runtime.LockOSThread()
-			gstate := &stickyLock{
-				gstate: python.PyGILState_Ensure(),
-				locked: 1,
+			// Define a check instance with the check.py module
+			config.Datadog.Set("foo_agent", "bar_agent")
+			defer config.Datadog.Set("foo_agent", nil)
+			module := python.PyImport_ImportModule("check")
+			if module == nil {
+				python.PyErr_Print()
+				panic("Unable to import check")
 			}
-			defer gstate.unlock()
 
-			/*
-				// Define a check instance with the check.py module
-				config.Datadog.Set("foo_agent", "bar_agent")
-				defer config.Datadog.Set("foo_agent", nil)
-				module := python.PyImport_ImportModule("check")
-				if module == nil {
-					python.PyErr_Print()
-					panic("Unable to import check")
-				}
+			// Import the TestCheck class
+			checkClass := module.GetAttrString("TestCheck")
+			if checkClass == nil {
+				python.PyErr_Print()
+				panic("Unable to load TestCheck class")
+			}
 
-				// Import the TestCheck class
-				checkClass := module.GetAttrString("TestCheck")
-				if checkClass == nil {
-					python.PyErr_Print()
-					panic("Unable to load TestCheck class")
-				}
-
-				// Run the check
-				check := py.NewPythonCheck("Python_Test_Check", checkClass)
-				e := check.Run()
-				if e != nil {
-					nc.hasRun = false
-					return e
-				}
+			// Run the check
+			check := py.NewPythonCheck("Python_Test_Check", checkClass)
+			e := check.Run()
+			if e != nil {
+				nc.hasRun = false
+				return e
+			}
 		*/
 
 		tuple := python.PyTuple_New(0)
@@ -113,6 +117,7 @@ func (nc *NumWorkersCheck) Run() error {
 		} else {
 			log.Debug("fail")
 		}
+		python.PyEval_RestoreThread(state)
 
 	}
 
