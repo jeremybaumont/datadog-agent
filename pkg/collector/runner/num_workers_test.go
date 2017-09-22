@@ -7,19 +7,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DataDog/datadog-agent/pkg/aggregator"
 	"github.com/DataDog/datadog-agent/pkg/collector/check"
 	"github.com/DataDog/datadog-agent/pkg/collector/py"
-	log "github.com/cihub/seelog"
-	"github.com/sbinet/go-python"
+	"github.com/DataDog/datadog-agent/pkg/config"
+	python "github.com/sbinet/go-python"
+	//log "github.com/cihub/seelog"
 )
 
 /****************** Testing configuration ****************************/
 
 var testingEfficiency = true // Run this test (should be false normally)
-var static = false           // Run with default num workers (vs dynamic)
+var static = true            // Run with default num workers (vs dynamic)
 var prettyOutput = false     // Labelled test results
 var checkType = pythonCheck  // Which type of check to run (busyWait, lazyWait, or pythonCheck)
-var numIntervals = 10        // How many times to repeat each check (for the time tests)
+var numIntervals = 2         // How many times to repeat each check (for the time tests)
 
 /*********************************************************************/
 
@@ -31,29 +33,21 @@ const (
 	pythonCheck CheckType = iota
 )
 
-// NumWorkersCheck implements the 'Check' interface via the TestCheck struct defined in runner_test.go
-type NumWorkersCheck struct {
-	TestCheck
-	name string
-}
-
 type stickyLock struct {
 	gstate python.PyGILState
 	locked uint32 // Flag set to 1 if the lock is locked, 0 otherwise
-}
-
-func newStickyLock() *stickyLock {
-	runtime.LockOSThread()
-	return &stickyLock{
-		gstate: python.PyGILState_Ensure(),
-		locked: 1,
-	}
 }
 
 func (sl *stickyLock) unlock() {
 	atomic.StoreUint32(&sl.locked, 0)
 	python.PyGILState_Release(sl.gstate)
 	runtime.UnlockOSThread()
+}
+
+// NumWorkersCheck implements the 'Check' interface via the TestCheck struct defined in runner_test.go
+type NumWorkersCheck struct {
+	TestCheck
+	name string
 }
 
 func (nc *NumWorkersCheck) String() string { return nc.name }
@@ -75,50 +69,7 @@ func (nc *NumWorkersCheck) Run() error {
 		time.Sleep(time.Millisecond * 100)
 
 	case pythonCheck:
-
-		log.Debugf("Attempting to run a python check.")
-		state := py.Initialize(".", "tests", "../dist")
-
-		// Lock the GIL while operating with go-python
-		gstate := newStickyLock()
-		defer gstate.unlock()
-
-		/*
-			// Define a check instance with the check.py module
-			config.Datadog.Set("foo_agent", "bar_agent")
-			defer config.Datadog.Set("foo_agent", nil)
-			module := python.PyImport_ImportModule("check")
-			if module == nil {
-				python.PyErr_Print()
-				panic("Unable to import check")
-			}
-
-			// Import the TestCheck class
-			checkClass := module.GetAttrString("TestCheck")
-			if checkClass == nil {
-				python.PyErr_Print()
-				panic("Unable to load TestCheck class")
-			}
-
-			// Run the check
-			check := py.NewPythonCheck("Python_Test_Check", checkClass)
-			e := check.Run()
-			if e != nil {
-				nc.hasRun = false
-				return e
-			}
-		*/
-
-		tuple := python.PyTuple_New(0)
-		res := py.NewPythonCheck("check", tuple)
-
-		if res != nil {
-			log.Debug("pass")
-		} else {
-			log.Debug("fail")
-		}
-		python.PyEval_RestoreThread(state)
-
+		runPythonCheck()
 	}
 
 	nc.hasRun = true
@@ -132,45 +83,40 @@ func TestUpdateNumWorkers(t *testing.T) {
 		return
 	}
 
-	log.Debugf("********* Starting a single check *********")
-	start := time.Now()
-	r := NewRunner()
-	c := NumWorkersCheck{name: "Check"}
-	if !static {
-		r.UpdateNumWorkers(1)
+	if checkType == pythonCheck {
+		// Initialize the python interpreter & the aggregator
+		state := py.Initialize(".", "../dist")
+		aggregator.InitAggregator(nil, "")
+
+		defer python.PyEval_RestoreThread(state)
 	}
-	r.pending <- &c
-	close(r.pending)
-	Wg.Wait()
 
-	log.Debugf("Time to run the check: %v", time.Now().Sub(start).Seconds())
-
-	return
-	/*
-		// Run the time tests
-		interval := false
-		for i := 0; i < 2; i++ {
-			if interval {
-				t.Logf("********* Starting the time efficiency test (%v repeats) *********", numIntervals)
-			} else {
-				t.Log("********* Starting the time efficiency test (single) *********")
-			}
-
-			checksToRun := [10]int{5, 15, 25, 35, 45, 55, 65, 75, 85, 100}
-
-			for _, n := range checksToRun {
-				ti := timeToComplete(n, interval)
-
-				if prettyOutput {
-					t.Logf("Time to run %v checks: %v", n, ti.Seconds())
-				} else {
-					t.Logf("%v", ti.Seconds())
-				}
-			}
-
-			interval = true
+	// Run the time tests
+	interval := false
+	for i := 0; i < 2; i++ {
+		if interval {
+			t.Logf("********* Starting the time efficiency test (%v repeats) *********", numIntervals)
+		} else {
+			t.Log("********* Starting the time efficiency test (single) *********")
 		}
 
+		checksToRun := [10]int{5, 15, 25, 35, 45, 55, 65, 75, 85, 100}
+		//checksToRun := [1]int{3}
+
+		for _, n := range checksToRun {
+			ti := timeToComplete(n, interval)
+
+			if prettyOutput {
+				t.Logf("Time to run %v checks: %v", n, ti.Seconds())
+			} else {
+				t.Logf("%v", ti.Seconds())
+			}
+		}
+
+		//interval = true
+	}
+
+	/*
 		// Run the memory test
 		r := NewRunner()
 		curr, _ := strconv.Atoi(runnerStats.Get("Workers").String())
@@ -243,4 +189,43 @@ func timeToComplete(numChecks int, runMultiple bool) time.Duration {
 	Wg.Wait()
 
 	return time.Now().Sub(start)
+}
+
+func runPythonCheck() {
+	// Lock the Global Interpreter Lock while operating with go-python
+	runtime.LockOSThread()
+	gstate := &stickyLock{
+		gstate: python.PyGILState_Ensure(),
+		locked: 1,
+	}
+
+	// Import the runner_test module
+	module := python.PyImport_ImportModule("runner_test")
+	if module == nil {
+		python.PyErr_Print()
+		panic("Unable to import runner_test")
+	}
+
+	// Import the TestCheck class
+	checkClass := module.GetAttrString("TestCheck")
+	if checkClass == nil {
+		python.PyErr_Print()
+		panic("Unable to load TestCheck class")
+	}
+
+	// Acquire a PythonCheck instance
+	check := py.NewPythonCheck("runner_test", checkClass)
+	config.Datadog.Set("foo_agent", "bar_agent")
+	defer config.Datadog.Set("foo_agent", nil)
+	e := check.Configure([]byte("foo_instance: bar_instance"), []byte("foo_init: bar_init"))
+	if check == nil || e != nil {
+		panic("Unable to acquire check instance")
+	}
+	gstate.unlock()
+
+	// Run the check
+	e = check.Run() // acquires its own stickLock
+	if e != nil {
+		panic("Unable to run check: " + e.Error())
+	}
 }
