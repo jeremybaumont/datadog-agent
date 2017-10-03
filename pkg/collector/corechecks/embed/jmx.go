@@ -83,6 +83,7 @@ type JMXCheck struct {
 	javaCustomJarPaths []string
 	isAttachAPI        bool
 	running            uint32
+	stopRequested      uint32
 }
 
 var jmxLauncher = JMXCheck{checks: make(map[string]struct{})}
@@ -180,7 +181,7 @@ func (c *JMXCheck) Run() error {
 	// forward the standard output to the Agent logger
 	stdout, err := c.cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return c.runError(err)
 	}
 	go func() {
 		in := bufio.NewScanner(stdout)
@@ -192,7 +193,7 @@ func (c *JMXCheck) Run() error {
 	// forward the standard error to the Agent logger
 	stderr, err := c.cmd.StderrPipe()
 	if err != nil {
-		return err
+		return c.runError(err)
 	}
 	go func() {
 		in := bufio.NewScanner(stderr)
@@ -203,13 +204,12 @@ func (c *JMXCheck) Run() error {
 
 	log.Debugf("Args: %v", subprocessArgs)
 	if err = c.cmd.Start(); err != nil {
-		return err
+		return c.runError(err)
 	}
 
 	err = c.cmd.Wait()
-	atomic.StoreUint32(&c.running, 0)
 
-	return err
+	return c.runError(err)
 }
 
 func (c *JMXCheck) Parse(data, initConfig check.ConfigData) error {
@@ -293,6 +293,7 @@ func (c *JMXCheck) GetMetricStats() (map[string]int64, error) {
 
 // Stop sends a termination signal to the JMXFetch process
 func (c *JMXCheck) Stop() {
+	atomic.StoreUint32(&c.stopRequested, 1)
 	if jmxExitFile == "" {
 		err := c.cmd.Process.Signal(os.Kill)
 		if err != nil {
@@ -304,6 +305,23 @@ func (c *JMXCheck) Stop() {
 		}
 	}
 	atomic.StoreUint32(&c.running, 0)
+}
+
+// runError returns the correct formatted error based on the `Run` error and the state of the check ;
+// and re-initializes flags
+func (c *JMXCheck) runError(err error) error {
+	atomic.StoreUint32(&c.running, 0)
+
+	if err == nil {
+		atomic.StoreUint32(&c.stopRequested, 0)
+		return nil
+	}
+	if atomic.LoadUint32(&c.stopRequested) == 1 {
+		// re-initialize stop flag and return specific error
+		atomic.StoreUint32(&c.stopRequested, 0)
+		return check.RetryableError{err}
+	}
+	return retryExitError(err)
 }
 
 // GetWarnings does not return anything in JMX

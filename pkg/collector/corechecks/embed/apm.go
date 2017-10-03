@@ -68,7 +68,7 @@ func (c *APMCheck) Run() error {
 		return err
 	}
 
-	return c.cmd.Wait()
+	return retryExitError(c.cmd.Wait())
 }
 
 // Configure the APMCheck

@@ -78,7 +78,7 @@ func (c *ProcessAgentCheck) Run() error {
 		return err
 	}
 
-	return c.cmd.Wait()
+	return retryExitError(c.cmd.Wait())
 }
 
 // Configure the ProcessAgentCheck

@@ -61,7 +61,7 @@ func (c *LogsCheck) Run() error {
 		return err
 	}
 
-	return c.cmd.Wait()
+	return retryExitError(c.cmd.Wait())
 }
 
 // Configure the LogsCheck

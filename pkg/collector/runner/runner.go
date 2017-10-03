@@ -162,15 +162,10 @@ func (r *Runner) work() {
 		var err error
 		t0 := time.Now()
 
-		if check.Interval() == 0 {
-			// retry long running checks, bail out if they return an error 3 times
-			// in a row without running for at least 5 seconds
-			// TODO: this should be check-configurable, with meaningful default values
-			err = retry(5*time.Second, 3, check.Run)
-		} else {
-			// normal check run
-			err = check.Run()
-		}
+		// retry checks when they return a RetryableError, bail out if they return such
+		// an error 3 times in a row in a 5-second interval.
+		// TODO: this should be check-configurable, with meaningful default values
+		err = retryCheckRun(5*time.Second, 3, check)
 
 		warnings := check.GetWarnings()
 
@@ -284,23 +279,30 @@ func getHostname() string {
 	return hostname
 }
 
-func retry(retryDuration time.Duration, retries int, callback func() error) (err error) {
+func retryCheckRun(retryDuration time.Duration, retries int, c check.Check) (err error) {
 	attempts := 0
 
 	for {
 		t0 := time.Now()
-		err = callback()
+		err = c.Run()
 		if err == nil {
 			return nil
 		}
+		switch err.(type) {
+		case check.RetryableError:
+			// proceed with retry
+		default:
+			// No retry requested, return the error
+			return err
+		}
 
-		// how much did the callback run?
+		// how much did the check run?
 		execDuration := time.Now().Sub(t0)
 		if execDuration < retryDuration {
-			// the callback failed too soon, retry but increment the counter
+			// the check failed too soon, retry but increment the counter
 			attempts++
 		} else {
-			// the callback failed after the retryDuration, reset the counter
+			// the check failed after the retryDuration, reset the counter
 			attempts = 0
 		}
 
@@ -309,6 +311,6 @@ func retry(retryDuration time.Duration, retries int, callback func() error) (err
 			return fmt.Errorf("bail out, last error: %v", err)
 		}
 
-		log.Warnf("Retrying, got an error executing the callback: %v", err)
+		log.Warnf("Retrying, got an error running the check: %v", err)
 	}
 }
