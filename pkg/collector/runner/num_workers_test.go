@@ -12,7 +12,6 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/collector/py"
 	"github.com/DataDog/datadog-agent/pkg/config"
 	python "github.com/sbinet/go-python"
-	//log "github.com/cihub/seelog"
 )
 
 /****************** Testing configuration ****************************/
@@ -21,7 +20,8 @@ var testingEfficiency = true // Run this test (should be false normally)
 var static = true            // Run with default num workers (vs dynamic)
 var prettyOutput = false     // Labelled test results
 var checkType = pythonCheck  // Which type of check to run (busyWait, lazyWait, or pythonCheck)
-var numIntervals = 2         // How many times to repeat each check (for the time tests)
+var numIntervals = 0         // How many times to repeat each check (for the time tests)
+var memoryTest = false       // After the time tests, run the memory test
 
 /*********************************************************************/
 
@@ -100,8 +100,8 @@ func TestUpdateNumWorkers(t *testing.T) {
 			t.Log("********* Starting the time efficiency test (single) *********")
 		}
 
-		checksToRun := [10]int{5, 15, 25, 35, 45, 55, 65, 75, 85, 100}
-		//checksToRun := [1]int{3}
+		//checksToRun := [10]int{5, 15, 25, 35, 45, 55, 65, 75, 85, 100}
+		checksToRun := [1]int{5}
 
 		for _, n := range checksToRun {
 			ti := timeToComplete(n, interval)
@@ -113,47 +113,51 @@ func TestUpdateNumWorkers(t *testing.T) {
 			}
 		}
 
-		//interval = true
+		if numIntervals == 0 {
+			break
+		}
+		interval = true
 	}
 
-	/*
-		// Run the memory test
-		r := NewRunner()
-		curr, _ := strconv.Atoi(runnerStats.Get("Workers").String())
-		runnerStats.Add("Workers", int64(curr*-1))
-		m := &runtime.MemStats{}
+	if !memoryTest {
+		return
+	}
+	// Run the memory test
+	r := NewRunner()
+	curr, _ := strconv.Atoi(runnerStats.Get("Workers").String())
+	runnerStats.Add("Workers", int64(curr*-1))
+	m := &runtime.MemStats{}
 
-		t.Log("********* Starting memory test *********")
-		runtime.ReadMemStats(m)
+	t.Log("********* Starting memory test *********")
+	runtime.ReadMemStats(m)
 
-		if prettyOutput {
-			t.Logf("At start:")
-			t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
-				m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
-		} else {
-			t.Logf("%v\t%v\t%v\t%v\t%v\t", m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+	if prettyOutput {
+		t.Logf("At start:")
+		t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
+			m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+	} else {
+		t.Logf("%v\t%v\t%v\t%v\t%v\t", m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+	}
+
+	for i := 1; i < 500; i++ {
+		c := NumWorkersCheck{name: "Check" + strconv.Itoa(i)}
+		if !static {
+			r.UpdateNumWorkers(int64(i))
 		}
+		r.pending <- &c
 
-		for i := 1; i < 500; i++ {
-			c := NumWorkersCheck{name: "Check" + strconv.Itoa(i)}
-			if !static {
-				r.UpdateNumWorkers(int64(i))
-			}
-			r.pending <- &c
+		if i%100 == 0 {
+			runtime.ReadMemStats(m)
 
-			if i%100 == 0 {
-				runtime.ReadMemStats(m)
-
-				if prettyOutput {
-					t.Logf("After %d checks:", i)
-					t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
-						m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
-				} else {
-					t.Logf("%v\t%v\t%v\t%v\t%v\t", m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
-				}
+			if prettyOutput {
+				t.Logf("After %d checks:", i)
+				t.Logf("\tAlloc = %v\tSys = %v\tHeapAlloc = %v\tHeapSys = %v\tHeapObj = %v\t",
+					m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
+			} else {
+				t.Logf("%v\t%v\t%v\t%v\t%v\t", m.Alloc/1024, m.Sys/1024, m.HeapAlloc, m.HeapSys, m.HeapObjects)
 			}
 		}
-	*/
+	}
 }
 
 func timeToComplete(numChecks int, runMultiple bool) time.Duration {
@@ -224,7 +228,7 @@ func runPythonCheck() {
 	gstate.unlock()
 
 	// Run the check
-	e = check.Run() // acquires its own stickLock
+	e = check.Run() // acquires its own stickyLock
 	if e != nil {
 		panic("Unable to run check: " + e.Error())
 	}

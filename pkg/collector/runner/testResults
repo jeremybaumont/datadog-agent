@@ -1,14 +1,218 @@
+go test github.com/DataDog/datadog-agent/pkg/collector/runner/ -v -run TestUpdateNumWorkers
+
 === RUN   TestUpdateNumWorkers
-1506080903999067048 [Debug] ********* Starting a single check *********
-1506080903999271448 [Info] Runner started with 4 workers.
-1506080903999316255 [Debug] Ready to process checks...
-1506080903999369195 [Debug] Ready to process checks...
-1506080903999386201 [Debug] Finished processing checks.
-1506080903999398607 [Debug] Ready to process checks...
-1506080903999408866 [Debug] Finished processing checks.
-1506080903999420622 [Info] Running check Check
-1506080903999427089 [Debug] Attempting to run a python check.
-1506080903999459525 [Debug] Ready to process checks...
-1506080903999466291 [Debug] Finished processing checks.
-1506080904020594293 [Debug] Initialized: attempting to get new check...
-1506080904020608489 [Debug] pass
+1507565280454033326 [Info] Runner started with 4 workers.
+1507565280454090488 [Debug] Ready to process checks...
+1507565280454107906 [Debug] Ready to process checks...
+1507565280454171943 [Info] Running check Check2
+1507565280454677579 [Debug] Ready to process checks...
+1507565280454704601 [Debug] Ready to process checks...
+1507565280454709727 [Info] Running check Check1
+1507565280460079466 [Warn] unable to get the hostname from the config file: host name is empty
+1507565280460088459 [Warn] trying to determine a reliable host name automatically...
+1507565280460090905 [Debug] GetHostname trying GCE metadata...
+1507565280460093231 [Debug] GetHostname trying os...
+1507565280460139851 [Debug] python check configure done runner_test
+1507565280460147859 [Debug] Running python check runner_test runner_test:c3d960f8ff8a5c55
+1507565280460316212 [Warn] unable to get the hostname from the config file: host name is empty
+1507565280460320628 [Warn] trying to determine a reliable host name automatically...
+1507565280460322804 [Debug] GetHostname trying GCE metadata...
+1507565280460324848 [Debug] GetHostname trying os...
+1507565280460362326 [Debug] python check configure done runner_test
+1507565280460369431 [Debug] Running python check runner_test runner_test:c3d960f8ff8a5c55
+1507565280482292582 [Info] Running check Check4
+1507565280482318374 [Info] Running check Check3
+1507565280483883232 [Warn] unable to get the hostname from the config file: host name is empty
+1507565280484046386 [Warn] trying to determine a reliable host name automatically...
+1507565280484051234 [Debug] GetHostname trying GCE metadata...
+1507565280484054042 [Debug] GetHostname trying os...
+Fatal Python error: auto-releasing thread-state, but no thread-state for this thread
+SIGABRT: abort
+PC=0x7f7f6498bc37 m=7 sigcode=18446744073709551610
+signal arrived during cgo execution
+
+goroutine 26 [syscall, locked to thread]:
+runtime.cgocall(0x8f7050, 0xc4201e7c98, 0xc420014e80)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/runtime/cgocall.go:131 +0xe2 fp=0xc4201e7c58 sp=0xc4201e7c18
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python._Cfunc_PyGILState_Release(0x1)
+	github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/_obj/_cgo_gotypes.go:2822 +0x45 fp=0xc4201e7c98 sp=0xc4201e7c58
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python.PyGILState_Release(0xc400000001)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/python.go:101 +0x29 fp=0xc4201e7cb0 sp=0xc4201e7c98
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*stickyLock).unlock(0xc420014ce0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:43 +0x35 fp=0xc4201e7cd8 sp=0xc4201e7cb0
+github.com/DataDog/datadog-agent/pkg/collector/runner.runPythonCheck()
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:228 +0x32d fp=0xc4201e7db8 sp=0xc4201e7cd8
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*NumWorkersCheck).Run(0xc42000c780, 0x1cbf56fe, 0xf2e4c0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:72 +0x63 fp=0xc4201e7e18 sp=0xc4201e7db8
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*Runner).work(0xc420125ef0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/runner.go:220 +0x478 fp=0xc4201e7fd8 sp=0xc4201e7e18
+runtime.goexit()
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/runtime/asm_amd64.s:2197 +0x1 fp=0xc4201e7fe0 sp=0xc4201e7fd8
+created by github.com/DataDog/datadog-agent/pkg/collector/runner.NewRunner
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/runner.go:86 +0x169
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0xc420174270, 0xa36449, 0x14, 0xa4f1c0, 0xc42013fd20)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/testing/testing.go:698 +0x2f4
+testing.runTests.func1(0xc420174270)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/testing/testing.go:882 +0x67
+testing.tRunner(0xc420174270, 0xc42013fde0)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/testing/testing.go:657 +0x96
+testing.runTests(0xc4201648c0, 0xeebd40, 0x6, 0x6, 0x30)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/testing/testing.go:888 +0x2c1
+testing.(*M).Run(0xc42013ff20, 0xc42013ff20)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/testing/testing.go:822 +0xfc
+main.main()
+	github.com/DataDog/datadog-agent/pkg/collector/runner/_test/_testmain.go:52 +0xf7
+
+goroutine 17 [syscall, locked to thread]:
+runtime.goexit()
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/runtime/asm_amd64.s:2197 +0x1
+
+goroutine 20 [runnable]:
+syscall.Syscall(0x1, 0x1, 0xc42007b200, 0x35, 0x35, 0x35, 0x0)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/syscall/asm_linux_amd64.s:18 +0x5
+syscall.write(0x1, 0xc42007b200, 0x35, 0x80, 0x35, 0x76, 0x100000000000000)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/syscall/zsyscall_linux_amd64.go:1064 +0x55
+syscall.Write(0x1, 0xc42007b200, 0x35, 0x80, 0x0, 0xc4200bc0e0, 0xc42003dc98)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/syscall/syscall_unix.go:181 +0x49
+os.(*File).write(0xc42007c008, 0xc42007b200, 0x35, 0x80, 0xc4200bc0c0, 0x10100c4200be370, 0x1)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/os/file_unix.go:186 +0x6c
+os.(*File).Write(0xc42007c008, 0xc42007b200, 0x35, 0x80, 0x0, 0xc42012bf40, 0x35)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/os/file.go:142 +0x7c
+fmt.Fprint(0xef4c20, 0xc42007c008, 0xc42003dda0, 0x1, 0x1, 0xc4201d84f0, 0xc42003dd90, 0xc4201d84f0)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/fmt/print.go:216 +0x8f
+fmt.Print(0xc42003dda0, 0x1, 0x1, 0xc4201d84f0, 0xc42012bf40, 0x35)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/fmt/print.go:225 +0x57
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*consoleWriter).Write(0xf4aac8, 0xc42012bf00, 0x35, 0x40, 0x35, 0x40, 0xc42012bec0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/writers_consolewriter.go:42 +0xc0
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*formattedWriter).Write(0xc4200f90a0, 0xc420164fa0, 0x18, 0xc420164f01, 0xefd800, 0xc42019c5b0, 0x711740, 0xc420014c50)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/writers_formattedwriter.go:48 +0xb9
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*dispatcher).Dispatch(0xc4200737c0, 0xc420164fa0, 0x18, 0xc42019c501, 0xefd800, 0xc42019c5b0, 0xa4f300)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/dispatch_dispatcher.go:96 +0x93
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*commonLogger).processLogMsg(0xc4200b81b0, 0xc420025301, 0xef3ee0, 0xc42000c820, 0xefd800, 0xc42019c5b0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/logger.go:312 +0xf3
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*asyncLogger).processQueueElement(0xc4200b81b0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/behavior_asynclogger.go:115 +0x15c
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*asyncLoopLogger).processItem(0xc4200b81b0, 0x0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/behavior_asynclooplogger.go:57 +0xef
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*asyncLoopLogger).processQueue(0xc4200b81b0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/behavior_asynclooplogger.go:63 +0x44
+created by github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.NewAsyncLoopLogger
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/behavior_asynclooplogger.go:40 +0x9f
+
+goroutine 21 [semacquire]:
+sync.runtime_notifyListWait(0xc420073990, 0x0)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/runtime/sema.go:297 +0x10b
+sync.(*Cond).Wait(0xc420073980)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/sync/cond.go:57 +0x89
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*asyncLoopLogger).processItem(0xc4200b82d0, 0x0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/behavior_asynclooplogger.go:50 +0xb3
+github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.(*asyncLoopLogger).processQueue(0xc4200b82d0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/behavior_asynclooplogger.go:63 +0x44
+created by github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog.NewAsyncLoopLogger
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/cihub/seelog/behavior_asynclooplogger.go:40 +0x9f
+
+goroutine 22 [select]:
+github.com/DataDog/datadog-agent/vendor/github.com/patrickmn/go-cache.(*janitor).Run(0xc42011f240, 0xc42012adc0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/patrickmn/go-cache/cache.go:1037 +0x171
+created by github.com/DataDog/datadog-agent/vendor/github.com/patrickmn/go-cache.runJanitor
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/patrickmn/go-cache/cache.go:1056 +0x8d
+
+goroutine 23 [semacquire]:
+sync.runtime_Semacquire(0xf4ac0c)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/runtime/sema.go:47 +0x34
+sync.(*WaitGroup).Wait(0xf4ac00)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/sync/waitgroup.go:131 +0x7a
+github.com/DataDog/datadog-agent/pkg/collector/runner.timeToComplete(0x5, 0xc42013bd00, 0x1)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:193 +0x37e
+github.com/DataDog/datadog-agent/pkg/collector/runner.TestUpdateNumWorkers(0xc420174340)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:107 +0x163
+testing.tRunner(0xc420174340, 0xa4f1c0)
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/testing/testing.go:657 +0x96
+created by testing.(*T).Run
+	/home/vagrant/.gimme/versions/go1.8.linux.amd64/src/testing/testing.go:697 +0x2ca
+
+goroutine 24 [select]:
+github.com/DataDog/datadog-agent/pkg/aggregator.(*BufferedAggregator).run(0xc4200a1100)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/aggregator/aggregator.go:407 +0x83d
+created by github.com/DataDog/datadog-agent/pkg/aggregator.InitAggregatorWithFlushInterval.func1
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/aggregator/aggregator.go:102 +0x83
+
+goroutine 25 [syscall, locked to thread]:
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python._Cfunc__gopy_PyObject_CallMethod(0x7f7f626be190, 0x7f7f5c000d50, 0xc400000001, 0x7f7f5c000d70, 0xc42000e0f0, 0x0)
+	github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/_obj/_cgo_gotypes.go:5462 +0x4e
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python.(*PyObject).CallMethod.func5(0xc42000e0f0, 0x1, 0x1, 0x7f7f626be190, 0x7f7f5c000d50, 0x1, 0x7f7f5c000d70, 0xc42000e0f0, 0xc420067d40)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/object.go:407 +0x144
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python.(*PyObject).CallMethod(0xc42000e0d8, 0xa2a177, 0x3, 0xc420053cb8, 0x1, 0x1, 0x0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/object.go:407 +0x5e6
+github.com/DataDog/datadog-agent/pkg/collector/py.(*PythonCheck).Run(0xc4200161e0, 0x0, 0x0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/py/check.go:63 +0x21f
+github.com/DataDog/datadog-agent/pkg/collector/runner.runPythonCheck()
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:231 +0x33b
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*NumWorkersCheck).Run(0xc420164a00, 0x1b1a59e3, 0xf2e4c0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:72 +0x63
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*Runner).work(0xc420125ef0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/runner.go:220 +0x478
+created by github.com/DataDog/datadog-agent/pkg/collector/runner.NewRunner
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/runner.go:86 +0x169
+
+goroutine 27 [syscall, locked to thread]:
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python._Cfunc__gopy_PyObject_CallMethod(0x7f7f626be150, 0x7f7f4c000ea0, 0xc400000001, 0x7f7f4c000ec0, 0xc42000e118, 0x0)
+	github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/_obj/_cgo_gotypes.go:5462 +0x4e
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python.(*PyObject).CallMethod.func5(0xc42000e118, 0x1, 0x1, 0x7f7f626be150, 0x7f7f4c000ea0, 0x1, 0x7f7f4c000ec0, 0xc42000e118, 0xc4201901a0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/object.go:407 +0x144
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python.(*PyObject).CallMethod(0xc42000e100, 0xa2a177, 0x3, 0xc42004dcb8, 0x1, 0x1, 0x0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/object.go:407 +0x5e6
+github.com/DataDog/datadog-agent/pkg/collector/py.(*PythonCheck).Run(0xc4201aa120, 0x0, 0x0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/py/check.go:63 +0x21f
+github.com/DataDog/datadog-agent/pkg/collector/runner.runPythonCheck()
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:231 +0x33b
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*NumWorkersCheck).Run(0xc42000c760, 0x1cc02cb0, 0xf2e4c0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:72 +0x63
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*Runner).work(0xc420125ef0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/runner.go:220 +0x478
+created by github.com/DataDog/datadog-agent/pkg/collector/runner.NewRunner
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/runner.go:86 +0x169
+
+goroutine 28 [syscall, locked to thread]:
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python._Cfunc__gopy_PyObject_CallMethod(0x7f7f626b17d0, 0x29ae7d0, 0xc400000001, 0x299b8c0, 0xc42007c3e8, 0x0)
+	github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/_obj/_cgo_gotypes.go:5462 +0x4e
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python.(*PyObject).CallMethod.func5(0xc42007c3e8, 0x1, 0x1, 0x7f7f626b17d0, 0x29ae7d0, 0x1, 0x299b8c0, 0xc42007c3e8, 0xc420190340)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/object.go:407 +0x144
+github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python.(*PyObject).CallMethod(0xc42007c3d0, 0xa2a177, 0x3, 0xc420051cb8, 0x1, 0x1, 0x0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/vendor/github.com/sbinet/go-python/object.go:407 +0x5e6
+github.com/DataDog/datadog-agent/pkg/collector/py.(*PythonCheck).Run(0xc42006bb00, 0x0, 0x0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/py/check.go:63 +0x21f
+github.com/DataDog/datadog-agent/pkg/collector/runner.runPythonCheck()
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:231 +0x33b
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*NumWorkersCheck).Run(0xc420164a60, 0x1b122785, 0xf2e4c0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/num_workers_test.go:72 +0x63
+github.com/DataDog/datadog-agent/pkg/collector/runner.(*Runner).work(0xc420125ef0)
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/runner.go:220 +0x478
+created by github.com/DataDog/datadog-agent/pkg/collector/runner.NewRunner
+	/home/vagrant/go/src/github.com/DataDog/datadog-agent/pkg/collector/runner/runner.go:86 +0x169
+
+rax    0x0
+rbx    0x7f7f64d18868
+rcx    0xffffffffffffffff
+rdx    0x6
+rdi    0x7784
+rsi    0x778a
+rbp    0x1
+rsp    0x7f7f61232cd8
+r8     0x7f7f61233700
+r9     0x69687420726f6620
+r10    0x8
+r11    0x206
+r12    0x1
+r13    0x3e
+r14    0x1e8
+r15    0x400
+rip    0x7f7f6498bc37
+rflags 0x206
+cs     0x33
+fs     0x0
+gs     0x0
+exit status 2
+FAIL	github.com/DataDog/datadog-agent/pkg/collector/runner	0.058s
