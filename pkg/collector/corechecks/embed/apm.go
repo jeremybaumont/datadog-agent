@@ -101,16 +101,27 @@ func (c *APMCheck) Configure(data check.ConfigData, initConfig check.ConfigData)
 		binPath = defaultBinPath
 	}
 
-	// let the trace-agent use its own default config file if we haven't explicitly configured one
-	ddConfigOption := ""
-	if checkConf.ConfPath != "" {
-		ddConfigOption = fmt.Sprintf("-ddconfig=%s", checkConf.ConfPath)
+	// let the trace-agent use its own config file provided by the Agent package
+	// if we haven't found one in the apm.yaml check config
+	configFile := checkConf.ConfPath
+	if configFile == "" {
+		configFile = path.Join(config.FileUsedDir(), "trace-agent.conf")
 	}
 
-	c.cmd = exec.Command(binPath, ddConfigOption)
+	commandOpts := []string{}
+
+	// if the trace-agent.conf file is available, use it
+	if _, err := os.Stat(configFile); !os.IsNotExist(err) {
+		commandOpts = append(commandOpts, fmt.Sprintf("-ddconfig=%s", configFile))
+	}
+
+	c.cmd = exec.Command(binPath, commandOpts...)
 
 	env := os.Environ()
+	env = append(env, fmt.Sprintf("DD_API_KEY=%s", config.Datadog.GetString("api_key")))
 	env = append(env, fmt.Sprintf("DD_HOSTNAME=%s", getHostname()))
+	env = append(env, fmt.Sprintf("DD_DOGSTATSD_PORT=%s", config.Datadog.GetString("dogstatsd_port")))
+	env = append(env, fmt.Sprintf("DD_LOG_LEVEL=%s", config.Datadog.GetString("log_level")))
 	c.cmd.Env = env
 
 	return nil
@@ -140,6 +151,11 @@ func (c *APMCheck) GetWarnings() []error {
 	return []error{}
 }
 
+// GetMetricStats returns the stats from the last run of the check, but there aren't any
+func (c *APMCheck) GetMetricStats() (map[string]int64, error) {
+	return make(map[string]int64), nil
+}
+
 func init() {
 	factory := func() check.Check {
 		return &APMCheck{}
@@ -148,9 +164,6 @@ func init() {
 }
 
 func getHostname() string {
-	hname, found := util.Cache.Get(path.Join(util.AgentCachePrefix, "hostname"))
-	if found {
-		return hname.(string)
-	}
-	return ""
+	hostname, _ := util.GetHostname()
+	return hostname
 }

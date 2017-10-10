@@ -70,7 +70,7 @@ func init() {
 	dogstatsdCmd.AddCommand(versionCmd)
 
 	// local flags
-	startCmd.Flags().StringVarP(&confPath, "cfgpath", "f", "", "path to datadog.yaml")
+	startCmd.Flags().StringVarP(&confPath, "cfgpath", "c", "", "path to datadog.yaml")
 	config.Datadog.BindPFlag("conf_path", startCmd.Flags().Lookup("cfgpath"))
 	startCmd.Flags().StringVarP(&socketPath, "socket", "s", "", "listen to this socket instead of UDP")
 	config.Datadog.BindPFlag("dogstatsd_socket", startCmd.Flags().Lookup("socket"))
@@ -81,7 +81,20 @@ func start(cmd *cobra.Command, args []string) error {
 	confErr := config.Datadog.ReadInConfig()
 
 	// Setup logger
-	err := config.SetupLogger(config.Datadog.GetString("log_level"), config.Datadog.GetString("log_file"))
+	syslogURI := config.GetSyslogURI()
+	logFile := config.Datadog.GetString("log_file")
+	if config.Datadog.GetBool("disable_file_logging") {
+		// this will prevent any logging on file
+		logFile = ""
+	}
+	err := config.SetupLogger(
+		config.Datadog.GetString("log_level"),
+		logFile,
+		syslogURI,
+		config.Datadog.GetBool("syslog_rfc"),
+		config.Datadog.GetBool("syslog_tls"),
+		config.Datadog.GetString("syslog_pem"),
+	)
 	if err != nil {
 		log.Criticalf("Unable to setup logger: %s", err)
 		return nil
@@ -115,12 +128,13 @@ func start(cmd *cobra.Command, args []string) error {
 	var metaScheduler *metadata.Scheduler
 	if config.Datadog.GetBool("enable_metadata_collection") {
 		// start metadata collection
-		metaScheduler := metadata.NewScheduler(s, hname)
+		metaScheduler = metadata.NewScheduler(s, hname)
 
 		// add the host metadata collector
 		err = metaScheduler.AddCollector("host", hostMetadataCollectorInterval*time.Second)
 		if err != nil {
-			panic("Host metadata is supposed to be always available in the catalog!")
+			metaScheduler.Stop()
+			return log.Error("Host metadata is supposed to be always available in the catalog!")
 		}
 	} else {
 		log.Warnf("Metadata collection disabled, only do that if another agent/dogstatsd is running on this host")

@@ -37,6 +37,11 @@ func (m *MockSender) MonotonicCount(metric string, value float64, hostname strin
 	m.Called(metric, value, hostname, tags)
 }
 
+//Counter adds a counter type to the mock calls.
+func (m *MockSender) Counter(metric string, value float64, hostname string, tags []string) {
+	m.Called(metric, value, hostname, tags)
+}
+
 //Histogram adds a histogram type to the mock calls.
 func (m *MockSender) Histogram(metric string, value float64, hostname string, tags []string) {
 	m.Called(metric, value, hostname, tags)
@@ -65,4 +70,10 @@ func (m *MockSender) Event(e metrics.Event) {
 //Commit enables the commit mock call.
 func (m *MockSender) Commit() {
 	m.Called()
+}
+
+//GetMetricStats enables the get metric stats mock call.
+func (m *MockSender) GetMetricStats() map[string]int64 {
+	m.Called()
+	return make(map[string]int64)
 }

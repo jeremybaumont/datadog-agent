@@ -36,6 +36,11 @@ func FromAgentConfig(agentConfig Config) error {
 		config.Datadog.Set("apm_enabled", false)
 	}
 
+	if enabled, err := isAffirmative(agentConfig["process_agent_enabled"]); err == nil && !enabled {
+		// process agent is enabled by default through the check config file `process_agent.yaml.default`
+		config.Datadog.Set("process_agent_enabled", false)
+	}
+
 	config.Datadog.Set("tags", strings.Split(agentConfig["tags"], ","))
 
 	if value, err := strconv.Atoi(agentConfig["forwarder_timeout"]); err == nil {
@@ -60,7 +65,7 @@ func FromAgentConfig(agentConfig Config) error {
 		config.Datadog.Set("listeners", []config.Listeners{dockerListener})
 	}
 
-	if providers, err := buildConfigProviders(agentConfig); err != nil {
+	if providers, err := buildConfigProviders(agentConfig); err == nil {
 		config.Datadog.Set("config_providers", providers)
 	}
 
@@ -89,6 +94,11 @@ func FromAgentConfig(agentConfig Config) error {
 		config.Datadog.Set("log_file", agentConfig["collector_log_file"])
 	}
 
+	// config.Datadog has a default value for this, do nothing if the value is empty
+	if agentConfig["disable_file_logging"] != "" {
+		config.Datadog.Set("disable_file_logging", agentConfig["disable_file_logging"])
+	}
+
 	if enabled, err := isAffirmative(agentConfig["log_to_syslog"]); err == nil {
 		config.Datadog.Set("log_to_syslog", enabled)
 	}
@@ -111,7 +121,9 @@ func isAffirmative(value string) (bool, error) {
 }
 
 func buildProxySettings(agentConfig Config) (string, error) {
-	if agentConfig["proxy_host"] == "" {
+	proxyHost := agentConfig["proxy_host"]
+
+	if proxyHost == "" {
 		// this is expected, not an error
 		return "", nil
 	}
@@ -119,8 +131,13 @@ func buildProxySettings(agentConfig Config) (string, error) {
 	var err error
 	var u *url.URL
 
-	if u, err = url.Parse(agentConfig["proxy_host"]); err != nil {
+	if u, err = url.Parse(proxyHost); err != nil {
 		return "", fmt.Errorf("unable to import value of settings 'proxy_host': %v", err)
+	}
+
+	// set scheme if missing
+	if u.Scheme == "" {
+		u, _ = url.Parse("http://" + proxyHost)
 	}
 
 	if agentConfig["proxy_port"] != "" {
@@ -174,6 +191,7 @@ func buildConfigProviders(agentConfig Config) ([]config.ConfigurationProviders, 
 		Username:    agentConfig["sd_backend_username"],
 		Password:    agentConfig["sd_backend_password"],
 		TemplateURL: url,
+		Polling:     true,
 	}
 
 	// v5 supported only one configuration provider at a time

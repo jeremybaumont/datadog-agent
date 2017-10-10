@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -47,6 +48,13 @@ type Listeners struct {
 	Name string `mapstructure:"name"`
 }
 
+// Proxy represents the configuration for proxies in the agent
+type Proxy struct {
+	HTTP    string   `mapstructure:"http"`
+	HTTPS   string   `mapstructure:"https"`
+	NoProxy []string `mapstructure:"no_proxy"`
+}
+
 func init() {
 	// config identifiers
 	Datadog.SetConfigName("datadog")
@@ -55,7 +63,7 @@ func init() {
 	// Configuration defaults
 	// Agent
 	Datadog.SetDefault("dd_url", "http://localhost:17123")
-	Datadog.SetDefault("proxy", "")
+	Datadog.SetDefault("proxy", nil)
 	Datadog.SetDefault("skip_ssl_validation", false)
 	Datadog.SetDefault("hostname", "")
 	Datadog.SetDefault("tags", []string{})
@@ -64,17 +72,27 @@ func init() {
 	Datadog.SetDefault("additional_checksd", defaultAdditionalChecksPath)
 	Datadog.SetDefault("log_file", defaultLogPath)
 	Datadog.SetDefault("log_level", "info")
-	Datadog.SetDefault("cmd_sock", "/tmp/agent.sock")
+	Datadog.SetDefault("log_to_syslog", false)
+	Datadog.SetDefault("disable_file_logging", false)
+	Datadog.SetDefault("syslog_uri", "")
+	Datadog.SetDefault("syslog_rfc", false)
+	Datadog.SetDefault("syslog_tls", false)
+	Datadog.SetDefault("syslog_pem", "")
+	Datadog.SetDefault("cmd_port", 5001)
 	Datadog.SetDefault("default_integration_http_timeout", 9)
 	Datadog.SetDefault("enable_metadata_collection", true)
 	// BUG(massi): make the listener_windows.go module actually use the following:
 	Datadog.SetDefault("cmd_pipe_name", `\\.\pipe\ddagent`)
 	Datadog.SetDefault("check_runners", int64(0))
 	if IsContainerized() {
-		Datadog.SetDefault("proc_root", "/host/proc")
+		Datadog.SetDefault("container_proc_root", "/host/proc")
+		Datadog.SetDefault("container_cgroup_root", "/host/sys/fs/cgroup/")
+
 	} else {
-		Datadog.SetDefault("proc_root", "/proc")
+		Datadog.SetDefault("container_proc_root", "/proc")
+		Datadog.SetDefault("container_cgroup_root", "/sys/fs/cgroup/")
 	}
+	Datadog.SetDefault("proc_root", "/proc")
 	// Serializer
 	Datadog.SetDefault("use_v2_api.series", false)
 	Datadog.SetDefault("use_v2_api.events", false)
@@ -93,37 +111,51 @@ func init() {
 	Datadog.SetDefault("dogstatsd_stats_buffer", 10)
 	Datadog.SetDefault("dogstatsd_expiry_seconds", 300)
 	Datadog.SetDefault("dogstatsd_origin_detection", false) // Only supported for socket traffic
-
 	// JMX
 	Datadog.SetDefault("jmx_pipe_path", defaultJMXPipePath)
 	Datadog.SetDefault("jmx_pipe_name", "dd-auto_discovery")
 	// Autoconfig
 	Datadog.SetDefault("autoconf_template_dir", "/datadog/check_configs")
+	Datadog.SetDefault("exclude_pause_container", true)
+	// Docker
+	Datadog.SetDefault("docker_labels_as_tags", map[string]string{})
+	Datadog.SetDefault("docker_env_as_tags", map[string]string{})
 	// Kubernetes
 	Datadog.SetDefault("kubernetes_http_kubelet_port", 10255)
 	Datadog.SetDefault("kubernetes_https_kubelet_port", 10250)
+	Datadog.SetDefault("kubernetes_pod_label_to_tag_prefix", "kube_")
+
 	// Cloud Foundry
 	Datadog.SetDefault("cloud_foundry", false)
 	Datadog.SetDefault("bosh_id", "")
 	// APM
 	Datadog.SetDefault("apm_enabled", true) // this is to support the transition to the new config file
+	// Proess Agent
+	Datadog.SetDefault("process_agent_enabled", true) // this is to support the transition to the new config file
+
+	Datadog.SetDefault("logging_frequency", int64(20))
+
 	// ENV vars bindings
 	Datadog.BindEnv("api_key")
 	Datadog.BindEnv("dd_url")
 	Datadog.BindEnv("hostname")
-	Datadog.BindEnv("cmd_sock")
+	Datadog.BindEnv("cmd_port")
 	Datadog.BindEnv("conf_path")
 	Datadog.BindEnv("enable_metadata_collection")
 	Datadog.BindEnv("dogstatsd_port")
 	Datadog.BindEnv("proc_root")
+	Datadog.BindEnv("container_proc_root")
+	Datadog.BindEnv("container_cgroup_root")
 	Datadog.BindEnv("dogstatsd_socket")
 	Datadog.BindEnv("dogstatsd_stats_port")
 	Datadog.BindEnv("dogstatsd_non_local_traffic")
+	Datadog.BindEnv("dogstatsd_origin_detection")
 	Datadog.BindEnv("log_file")
 	Datadog.BindEnv("log_level")
 	Datadog.BindEnv("kubernetes_kubelet_host")
 	Datadog.BindEnv("kubernetes_http_kubelet_port")
 	Datadog.BindEnv("kubernetes_https_kubelet_port")
+	Datadog.BindEnv("kubernetes_pod_label_to_tag_prefix")
 	Datadog.BindEnv("forwarder_timeout")
 	Datadog.BindEnv("forwarder_retry_queue_max_size")
 	Datadog.BindEnv("cloud_foundry")
@@ -224,4 +256,10 @@ func getMultipleEndpoints(config *viper.Viper) (map[string][]string, error) {
 // IsContainerized returns whether the Agent is running on a Docker container
 func IsContainerized() bool {
 	return os.Getenv("DOCKER_DD_AGENT") == "yes"
+}
+
+// FileUsedDir returns the absolute path to the folder containing the config
+// file used to populate the registry
+func FileUsedDir() string {
+	return filepath.Dir(Datadog.ConfigFileUsed())
 }

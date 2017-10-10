@@ -8,6 +8,7 @@ package common
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/DataDog/datadog-agent/pkg/collector"
 	"github.com/DataDog/datadog-agent/pkg/collector/autodiscovery"
@@ -15,6 +16,8 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/collector/loaders"
 	"github.com/DataDog/datadog-agent/pkg/collector/providers"
 	"github.com/DataDog/datadog-agent/pkg/config"
+	"github.com/DataDog/datadog-agent/pkg/tagger"
+	"github.com/DataDog/datadog-agent/pkg/util/docker"
 	log "github.com/cihub/seelog"
 )
 
@@ -22,6 +25,20 @@ import (
 //   1. add the configuration providers
 //   2. add the check loaders
 func SetupAutoConfig(confdPath string) {
+	// setup docker (for now we enable everything, we might add more option if needed)
+	docker.InitDockerUtil(&docker.Config{
+		CacheDuration:  10 * time.Second,
+		CollectNetwork: true,
+		Whitelist:      config.Datadog.GetStringSlice("ac_include"),
+		Blacklist:      config.Datadog.GetStringSlice("ac_exclude"),
+	})
+
+	// start tagging system for containers
+	err := tagger.Init()
+	if err != nil {
+		fmt.Printf("Unable to start tagging system: %s", err)
+	}
+
 	// create the Collector instance and start all the components
 	// NOTICE: this will also setup the Python environment
 	coll := collector.NewCollector(GetPythonPaths()...)
@@ -45,7 +62,7 @@ func SetupAutoConfig(confdPath string) {
 
 	// Register additional configuration providers
 	var CP []config.ConfigurationProviders
-	err := config.Datadog.UnmarshalKey("config_providers", &CP)
+	err = config.Datadog.UnmarshalKey("config_providers", &CP)
 	if err == nil {
 		for _, cp := range CP {
 			factory, found := providers.ProviderCatalog[cp.Name]
@@ -94,19 +111,20 @@ func StartAutoConfig() {
 }
 
 // SetupConfig fires up the configuration system
-func SetupConfig(confFilePath string) {
+func SetupConfig(confFilePath string) error {
 	// set the paths where a config file is expected
 	if len(confFilePath) != 0 {
 		// if the configuration file path was supplied on the command line,
 		// add that first so it's first in line
 		config.Datadog.AddConfigPath(confFilePath)
 	}
-	config.Datadog.AddConfigPath(defaultConfPath)
+	config.Datadog.AddConfigPath(DefaultConfPath)
 	config.Datadog.AddConfigPath(GetDistPath())
 
 	// load the configuration
 	err := config.Datadog.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("unable to load Datadog config file: %s", err))
+		return fmt.Errorf("unable to load Datadog config file: %s", err)
 	}
+	return nil
 }

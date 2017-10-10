@@ -7,7 +7,6 @@ package metadata
 
 import (
 	"fmt"
-	"path"
 
 	"github.com/DataDog/datadog-agent/pkg/metadata/resources"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
@@ -20,11 +19,7 @@ type ResourcesCollector struct{}
 
 // Send collects the data needed and submits the payload
 func (rp *ResourcesCollector) Send(s *serializer.Serializer) error {
-	var hostname string
-	x, found := util.Cache.Get(path.Join(util.AgentCachePrefix, "hostname"))
-	if found {
-		hostname = x.(string)
-	}
+	hostname, _ := util.GetHostname()
 
 	payload := map[string]interface{}{
 		"resources": resources.GetPayload(hostname),

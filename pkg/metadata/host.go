@@ -7,7 +7,6 @@ package metadata
 
 import (
 	"fmt"
-	"path"
 
 	"github.com/DataDog/datadog-agent/pkg/metadata/v5"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
@@ -20,11 +19,7 @@ type HostCollector struct{}
 
 // Send collects the data needed and submits the payload
 func (hp *HostCollector) Send(s *serializer.Serializer) error {
-	var hostname string
-	x, found := util.Cache.Get(path.Join(util.AgentCachePrefix, "hostname"))
-	if found {
-		hostname = x.(string)
-	}
+	hostname, _ := util.GetHostname()
 
 	payload := v5.GetPayload(hostname)
 	if err := s.SendMetadata(payload); err != nil {

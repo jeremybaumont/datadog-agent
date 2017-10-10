@@ -40,8 +40,6 @@ func NewCollector(paths ...string) *Collector {
 	log.Debug("scheduler created")
 	sched.Run()
 
-	log.Debug("Creating collector")
-	log.Infof("Initializing python interpreter with paths: %v", paths)
 	c := &Collector{
 		scheduler:      sched,
 		runner:         run,
@@ -49,8 +47,16 @@ func NewCollector(paths ...string) *Collector {
 		state:          started,
 		checkInstances: int64(0),
 	}
-	pySetup(paths...)
-	log.Debug("created collector")
+	pyVer, pyHome, pyPath := pySetup(paths...)
+
+	// print the Python info if the interpreter was embedded
+	if pyVer != "" {
+		log.Infof("Embedding Python %s", pyVer)
+		log.Debugf("Python Home: %s", pyHome)
+		log.Debugf("Python path: %s", pyPath)
+	}
+
+	log.Debug("Collector up and running!")
 	return c
 }
 

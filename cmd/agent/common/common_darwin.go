@@ -9,11 +9,12 @@ import (
 	"path/filepath"
 )
 
-const defaultConfPath = "/opt/datadog-agent/etc"
+// DefaultConfPath points to the folder containing datadog.yaml
+const DefaultConfPath = "/opt/datadog-agent/etc/datadog-agent"
 
 var (
 	// PyChecksPath holds the path to the python checks from integrations-core shipped with the agent
-	PyChecksPath = filepath.Join(_here, "..", "..", "agent", "checks.d")
+	PyChecksPath = filepath.Join(_here, "..", "..", "checks.d")
 	// DistPath holds the path to the folder containing distribution files
 	distPath = filepath.Join(_here, "dist")
 )

@@ -8,7 +8,7 @@ from invoke.exceptions import Exit
 
 
 @task
-def fmt(ctx, targets=None, fail_on_mod=False):
+def fmt(ctx, targets=None, fail_on_fmt=False):
     """
     Run go fmt on targets. If targets are not specified,
     the value from `invoke.yaml` will be used.
@@ -24,7 +24,7 @@ def fmt(ctx, targets=None, fail_on_mod=False):
     if result.stdout:
         files = {x for x in result.stdout.split("\n") if x}
         print("Reformatted the following files: {}".format(','.join(files)))
-        if fail_on_mod:
+        if fail_on_fmt:
             print("Code was not properly formatted, exiting...")
             raise Exit(1)
     print("go fmt found no issues")
@@ -77,6 +77,12 @@ def deps(ctx):
     ctx.run("go get -u github.com/golang/dep/cmd/dep")
     ctx.run("go get -u github.com/golang/lint/golint")
     ctx.run("dep ensure")
+    # prune packages from /vendor, remove this hack
+    # as soon as `dep prune` is merged within `dep ensure`,
+    # see https://github.com/golang/dep/issues/944
+    ctx.run("mv vendor/github.com/shirou/gopsutil/host/include .")
+    ctx.run("dep prune")
+    ctx.run("mv include vendor/github.com/shirou/gopsutil/host/")
 
 
 @task

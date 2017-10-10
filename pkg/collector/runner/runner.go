@@ -9,7 +9,6 @@ import (
 	"expvar"
 	"fmt"
 
-	"path"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -213,20 +212,34 @@ func (r *Runner) work() {
 		}
 		r.m.Unlock()
 
-		log.Infof("Running check %s", check)
+		doLog, lastLog := shouldLog(check.ID())
+
+		if doLog {
+			log.Infof("Running check %s", check)
+		} else {
+			log.Debugf("Running check %s", check)
+		}
 
 		// run the check
+		var err error
 		t0 := time.Now()
-		err := check.Run()
+
+		if check.Interval() == 0 {
+			// retry long running checks, bail out if they return an error 3 times
+			// in a row without running for at least 5 seconds
+			// TODO: this should be check-configurable, with meaningful default values
+			err = retry(5*time.Second, 3, check.Run)
+		} else {
+			// normal check run
+			err = check.Run()
+		}
+
 		warnings := check.GetWarnings()
 
-		sender, e := aggregator.GetSender(check.ID())
+		// use the default sender for the service checks
+		sender, e := aggregator.GetDefaultSender()
 		if e != nil {
-			log.Debugf("Error getting sender: %v for check %s. trying to get default sender", e, check)
-			sender, e = aggregator.GetDefaultSender()
-			if e != nil {
-				log.Errorf("Error getting default sender: %v. Not sending status check for %s", e, check)
-			}
+			log.Errorf("Error getting default sender: %v. Not sending status check for %s", e, check)
 		}
 		serviceCheckTags := []string{fmt.Sprintf("check:%s", check.String())}
 		serviceCheckStatus := metrics.ServiceCheckOK
@@ -258,15 +271,47 @@ func (r *Runner) work() {
 		// publish statistics about this run
 		runnerStats.Add("RunningChecks", -1)
 		runnerStats.Add("Runs", 1)
-		addWorkStats(check, time.Since(t0), err, warnings)
+		mStats, _ := check.GetMetricStats()
+		addWorkStats(check, time.Since(t0), err, warnings, mStats)
 
-		log.Infof("Done running check %s", check)
+		l := "Done running check %s"
+		if doLog {
+			if lastLog {
+				l = l + fmt.Sprintf(" first runs done, next runs will be logged every %v runs", config.Datadog.GetInt64("logging_frequency"))
+			}
+			log.Infof(l, check)
+		} else {
+			log.Debugf(l, check)
+		}
 	}
 
 	log.Debug("Finished processing checks.")
 }
 
-func addWorkStats(c check.Check, execTime time.Duration, err error, warnings []error) {
+func shouldLog(id check.ID) (doLog bool, lastLog bool) {
+	checkStats.M.RLock()
+	defer checkStats.M.RUnlock()
+
+	loggingFrequency := uint64(config.Datadog.GetInt64("logging_frequency"))
+
+	s, found := checkStats.Stats[id]
+	if found {
+		if s.TotalRuns <= 5 {
+			doLog = true
+			if s.TotalRuns == 5 {
+				lastLog = true
+			}
+		} else if s.TotalRuns%loggingFrequency == 0 {
+			doLog = true
+		}
+	} else {
+		doLog = true
+	}
+
+	return
+}
+
+func addWorkStats(c check.Check, execTime time.Duration, err error, warnings []error, mStats map[string]int64) {
 	var s *check.Stats
 	var found bool
 
@@ -278,7 +323,7 @@ func addWorkStats(c check.Check, execTime time.Duration, err error, warnings []e
 	}
 	checkStats.M.Unlock()
 
-	s.Add(execTime, err, warnings)
+	s.Add(execTime, err, warnings, mStats)
 }
 
 func expCheckStats() interface{} {
@@ -297,9 +342,35 @@ func GetCheckStats() map[check.ID]*check.Stats {
 }
 
 func getHostname() string {
-	hname, found := util.Cache.Get(path.Join(util.AgentCachePrefix, "hostname"))
-	if found {
-		return hname.(string)
+	hostname, _ := util.GetHostname()
+	return hostname
+}
+
+func retry(retryDuration time.Duration, retries int, callback func() error) (err error) {
+	attempts := 0
+
+	for {
+		t0 := time.Now()
+		err = callback()
+		if err == nil {
+			return nil
+		}
+
+		// how much did the callback run?
+		execDuration := time.Now().Sub(t0)
+		if execDuration < retryDuration {
+			// the callback failed too soon, retry but increment the counter
+			attempts++
+		} else {
+			// the callback failed after the retryDuration, reset the counter
+			attempts = 0
+		}
+
+		if attempts == retries {
+			// give up
+			return fmt.Errorf("bail out, last error: %v", err)
+		}
+
+		log.Warnf("Retrying, got an error executing the callback: %v", err)
 	}
-	return ""
 }

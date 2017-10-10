@@ -3,6 +3,10 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2017 Datadog, Inc.
 
+//
+// NOTE: This module contains a feature in development that is NOT supported.
+//
+
 package percentile
 
 import (
@@ -53,11 +57,6 @@ func (q QSketch) Add(v float64) QSketch {
 	return QSketch{GKArray: q.GKArray.Add(v)}
 }
 
-// Compress the qsketch
-func (q QSketch) Compress() QSketch {
-	return QSketch{GKArray: q.GKArray.Compress()}
-}
-
 // NoSketchError is the error returned when not enough samples have been
 //submitted to generate a sketch
 type NoSketchError struct{}
@@ -99,7 +98,7 @@ func unmarshalSketches(payloadSketches []agentpayload.SketchPayload_Sketch_Distr
 						Avg:      s.Avg,
 						Sum:      s.Sum,
 						Entries:  unmarshalEntries(s.V, s.G, s.Delta),
-						incoming: make([]float64, 0, int(1/EPSILON))}},
+						Incoming: s.Buf}},
 			})
 	}
 	return sketches
@@ -132,6 +131,7 @@ func marshalSketches(sketches []Sketch) []agentpayload.SketchPayload_Sketch_Dist
 				V:     v,
 				G:     g,
 				Delta: delta,
+				Buf:   s.Sketch.Incoming,
 			})
 	}
 	return sketchesPayload

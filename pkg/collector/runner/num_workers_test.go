@@ -100,8 +100,7 @@ func TestUpdateNumWorkers(t *testing.T) {
 			t.Log("********* Starting the time efficiency test (single) *********")
 		}
 
-		//checksToRun := [10]int{5, 15, 25, 35, 45, 55, 65, 75, 85, 100}
-		checksToRun := [1]int{5}
+		checksToRun := [10]int{5, 15, 25, 35, 45, 55, 65, 75, 85, 100}
 
 		for _, n := range checksToRun {
 			ti := timeToComplete(n, interval)
@@ -216,6 +215,7 @@ func runPythonCheck() {
 		python.PyErr_Print()
 		panic("Unable to load TestCheck class")
 	}
+	gstate.unlock()
 
 	// Acquire a PythonCheck instance
 	check := py.NewPythonCheck("runner_test", checkClass)
@@ -225,7 +225,6 @@ func runPythonCheck() {
 	if check == nil || e != nil {
 		panic("Unable to acquire check instance")
 	}
-	gstate.unlock()
 
 	// Run the check
 	e = check.Run() // acquires its own stickyLock

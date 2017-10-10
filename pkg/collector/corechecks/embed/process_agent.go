@@ -17,6 +17,7 @@ import (
 
 	"github.com/DataDog/datadog-agent/pkg/collector/check"
 	core "github.com/DataDog/datadog-agent/pkg/collector/corechecks"
+	"github.com/DataDog/datadog-agent/pkg/config"
 
 	log "github.com/cihub/seelog"
 	"github.com/kardianos/osext"
@@ -82,6 +83,11 @@ func (c *ProcessAgentCheck) Run() error {
 
 // Configure the ProcessAgentCheck
 func (c *ProcessAgentCheck) Configure(data check.ConfigData, initConfig check.ConfigData) error {
+	// handle the case when the agent is disabled via the old `datadog.conf` file
+	if enabled := config.Datadog.GetBool("process_agent_enabled"); !enabled {
+		return fmt.Errorf("Process Agent disabled through main configuration file")
+	}
+
 	var initConf processAgentInitConfig
 	if err := yaml.Unmarshal(initConfig, &initConf); err != nil {
 		return err
@@ -110,19 +116,27 @@ func (c *ProcessAgentCheck) Configure(data check.ConfigData, initConfig check.Co
 		binPath = defaultBinPath
 	}
 
-	// let the process-agent use its own default config file if we haven't explicitly configured one
-	ddConfigOption := ""
-	if checkConf.ConfPath != "" {
-		ddConfigOption = fmt.Sprintf("-ddconfig=%s", checkConf.ConfPath)
+	// let the process agent use its own config file provided by the Agent package
+	// if we haven't found one in the process-agent.yaml check config
+	configFile := checkConf.ConfPath
+	if configFile == "" {
+		configFile = path.Join(config.FileUsedDir(), "process-agent.conf")
 	}
 
-	c.cmd = exec.Command(binPath, ddConfigOption)
+	commandOpts := []string{}
+
+	// if the process-agent.conf file is available, use it
+	if _, err := os.Stat(configFile); !os.IsNotExist(err) {
+		commandOpts = append(commandOpts, fmt.Sprintf("-ddconfig=%s", configFile))
+	}
+
+	c.cmd = exec.Command(binPath, commandOpts...)
 
 	env := os.Environ()
-	env = append(env,
-		fmt.Sprintf("DD_HOSTNAME=%s", getHostname()),
-		"DD_PROCESS_AGENT_ENABLED=true",
-	)
+	env = append(env, fmt.Sprintf("DD_API_KEY=%s", config.Datadog.GetString("api_key")))
+	env = append(env, fmt.Sprintf("DD_HOSTNAME=%s", getHostname()))
+	env = append(env, fmt.Sprintf("DD_DOGSTATSD_PORT=%s", config.Datadog.GetString("dogstatsd_port")))
+	env = append(env, fmt.Sprintf("DD_LOG_LEVEL=%s", config.Datadog.GetString("log_level")))
 	c.cmd.Env = env
 
 	return nil
@@ -152,6 +166,11 @@ func (c *ProcessAgentCheck) Stop() {
 	if err != nil {
 		log.Errorf("unable to stop process-agent check: %s", err)
 	}
+}
+
+// GetMetricStats returns the stats from the last run of the check, but there aren't any yet
+func (c *ProcessAgentCheck) GetMetricStats() (map[string]int64, error) {
+	return make(map[string]int64), nil
 }
 
 func init() {

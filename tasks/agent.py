@@ -4,12 +4,13 @@ Agent namespaced tasks
 from __future__ import print_function
 import os
 import shutil
+import sys
 from distutils.dir_util import copy_tree
 
 import invoke
 from invoke import task
 
-from .utils import bin_name, get_build_flags, pkg_config_path
+from .utils import bin_name, get_build_flags, pkg_config_path, get_version, get_version_numeric_only
 from .utils import REPO_PATH
 from .build_tags import get_build_tags, get_puppy_build_tags
 from .go import deps
@@ -20,7 +21,7 @@ BIN_PATH = os.path.join(".", "bin", "agent")
 
 @task
 def build(ctx, rebuild=False, race=False, build_include=None, build_exclude=None,
-          puppy=False, use_embedded_libs=False):
+          puppy=False, use_embedded_libs=False, development=True):
     """
     Build the agent. If the bits to include in the build are not specified,
     the values from `invoke.yaml` will be used.
@@ -45,10 +46,13 @@ def build(ctx, rebuild=False, race=False, build_include=None, build_exclude=None
         # This generates the manifest resource. The manifest resource is necessary for
         # being able to load the ancient C-runtime that comes along with Python 2.7
         #command = "rsrc -arch amd64 -manifest cmd/agent/agent.exe.manifest -o cmd/agent/rsrc.syso"
-
-        # fixme -- still need to calculate correct *_VER numbers at build time rather than
-        # hard-coded here.
-        command = "windres --define MAJ_VER=6 --define MIN_VER=0 --define PATCH_VER=0 "
+        ver = get_version_numeric_only(ctx)
+        build_maj, build_min, build_patch = ver.split(".")
+        command = "windres --define MAJ_VER={build_maj} --define MIN_VER={build_min} --define PATCH_VER={build_patch} ".format(
+            build_maj=build_maj,
+            build_min=build_min,
+            build_patch=build_patch
+        )
         command += "-i cmd/agent/agent.rc --target=pe-x86-64 -O coff -o cmd/agent/rsrc.syso"
         ctx.run(command, env=env)
 
@@ -65,11 +69,11 @@ def build(ctx, rebuild=False, race=False, build_include=None, build_exclude=None
     }
 
     ctx.run(cmd.format(**args), env=env)
-    refresh_assets(ctx)
+    refresh_assets(ctx, development=development)
 
 
 @task
-def refresh_assets(ctx):
+def refresh_assets(ctx, development=True):
     """
     Clean up and refresh Collector's assets and config files
     """
@@ -82,13 +86,11 @@ def refresh_assets(ctx):
         shutil.rmtree(dist_folder)
     copy_tree("./pkg/collector/dist/", dist_folder)
     copy_tree("./pkg/status/dist/", dist_folder)
-    copy_tree("./dev/dist/", dist_folder)
-
-    bin_agent = os.path.join(BIN_PATH, "agent")
-    shutil.move(os.path.join(dist_folder, "agent"), bin_agent)
+    if development:
+        copy_tree("./dev/dist/", dist_folder)
+    # copy the dd-agent placeholder to the bin folder
     bin_ddagent = os.path.join(BIN_PATH, "dd-agent")
     shutil.move(os.path.join(dist_folder, "dd-agent"), bin_ddagent)
-    os.chmod(bin_agent, 0755)
 
 
 @task
@@ -140,45 +142,40 @@ def integration_tests(ctx, install_deps=False):
 
 
 @task
-def omnibus_build(ctx, puppy=False):
+def omnibus_build(ctx, puppy=False, log_level="info", base_dir=None, gem_path=None,
+                  skip_deps=False):
     """
     Build the Agent packages with Omnibus Installer.
     """
-    # env overrides
-    env = {}
-    if not os.environ.get("JMX_VERSION"):
-        env["JMX_VERSION"] = "0.16.0"
-    if not os.environ.get("AGENT_VERSION"):
-        env["AGENT_VERSION"] = "6"
+    if not skip_deps:
+        deps(ctx)
 
     # omnibus config overrides
     overrides = []
 
-    # base dir (can be overridden through env vars)
-    base_dir = os.environ.get("AGENT_OMNIBUS_BASE_DIR")
+    # base dir (can be overridden through env vars, command line takes precendence)
+    base_dir = base_dir or os.environ.get("AGENT_OMNIBUS_BASE_DIR")
     if base_dir:
         overrides.append("base_dir:{}".format(base_dir))
-
-    # package_dir (can be overridden through env vars)
-    package_dir = os.environ.get("AGENT_OMNIBUS_PACKAGE_DIR")
-    if package_dir:
-        overrides.append("package_dir:{}".format(package_dir))
 
     overrides_cmd = ""
     if overrides:
         overrides_cmd = "--override=" + " ".join(overrides)
 
     with ctx.cd("omnibus"):
-        ctx.run("bundle install")
-        omnibus = "bundle exec omnibus.bat" if invoke.platform.WINDOWS else "omnibus"
+        cmd = "bundle install"
+        if gem_path:
+            cmd += " --path {}".format(gem_path)
+        ctx.run(cmd)
+        omnibus = "bundle exec omnibus.bat" if invoke.platform.WINDOWS else "bundle exec omnibus"
         cmd = "{omnibus} build {project_name} --log-level={log_level} {overrides}"
         args = {
             "omnibus": omnibus,
-            "project_name": "puppy" if puppy else "datadog-agent6",
-            "log_level": os.environ.get("AGENT_OMNIBUS_LOG_LEVEL", "info"),
+            "project_name": "puppy" if puppy else "agent",
+            "log_level": log_level,
             "overrides": overrides_cmd
         }
-        ctx.run(cmd.format(**args), env=env)
+        ctx.run(cmd.format(**args))
 
 
 @task

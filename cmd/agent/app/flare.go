@@ -8,8 +8,8 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"os"
 
+	apicommon "github.com/DataDog/datadog-agent/cmd/agent/api/common"
 	"github.com/DataDog/datadog-agent/cmd/agent/common"
 	"github.com/DataDog/datadog-agent/pkg/config"
 	"github.com/DataDog/datadog-agent/pkg/flare"
@@ -26,9 +26,8 @@ func init() {
 	AgentCmd.AddCommand(flareCmd)
 
 	flareCmd.Flags().StringVarP(&customerEmail, "email", "e", "", "Your email")
-	flareCmd.Flags().StringVarP(&caseID, "case-id", "c", "", "Your case ID")
-	flareCmd.Flags().StringVarP(&confFilePath, "cfgpath", "f", "", "path to datadog.yaml")
-	flareCmd.Flags().BoolVarP(&autoconfirm, "send", "s", false, "Automatically send flare (don't prompt for confirmation")
+	flareCmd.Flags().StringVarP(&caseID, "case-id", "i", "", "Your case ID")
+	flareCmd.Flags().BoolVarP(&autoconfirm, "send", "s", false, "Automatically send flare (don't prompt for confirmation)")
 	flareCmd.SetArgs([]string{"caseID"})
 }
 
@@ -36,30 +35,33 @@ var flareCmd = &cobra.Command{
 	Use:   "flare [caseID]",
 	Short: "Collect a flare and send it to Datadog",
 	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		common.SetupConfig(confFilePath)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		err := common.SetupConfig(confFilePath)
+		if err != nil {
+			return err
+		}
 		// The flare command should not log anything, all errors should be reported directly to the console without the log format
-		config.SetupLogger("off", "")
+		config.SetupLogger("off", "", "", false, false, "")
 		if customerEmail == "" && caseID == "" {
 			var err error
 			customerEmail, err = flare.AskForEmail()
 			if err != nil {
 				fmt.Println("Error reading email, please retry or contact support")
-				os.Exit(1)
+				return err
 			}
 		}
-		err := requestFlare()
-		if err != nil {
-			os.Exit(1)
-		}
+		return requestFlare()
 	},
 }
 
 func requestFlare() error {
 	fmt.Println("Asking the agent to build the flare archive.")
 	var e error
-	c := common.GetClient()
-	urlstr := "http://" + sockname + "/agent/flare"
+	c := common.GetClient(false) // FIX: get certificates right then make this true
+	urlstr := fmt.Sprintf("https://localhost:%v/agent/flare", config.Datadog.GetInt("cmd_port"))
+
+	// Set session token
+	apicommon.SetAuthToken()
 
 	r, e := common.DoPost(c, urlstr, "application/json", bytes.NewBuffer([]byte{}))
 	var filePath string

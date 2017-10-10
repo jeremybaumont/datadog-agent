@@ -7,6 +7,7 @@ package check
 
 import (
 	"bytes"
+	"fmt"
 	"hash/fnv"
 	"regexp"
 	"strconv"
@@ -68,21 +69,28 @@ type Check interface {
 	Interval() time.Duration                       // return the interval time for the check
 	ID() ID                                        // provide a unique identifier for every check instance
 	GetWarnings() []error                          // return the last warning registered by the check
+	GetMetricStats() (map[string]int64, error)     // get metric stats from the sender
 }
 
 // Stats holds basic runtime statistics about check instances
 type Stats struct {
-	CheckName         string
-	CheckID           ID
-	TotalRuns         uint64
-	TotalErrors       uint64
-	TotalWarnings     uint64
-	ExecutionTimes    [32]int64 // circular buffer of recent run durations, most recent at [(TotalRuns+31) % 32]
-	LastExecutionTime int64     // most recent run duration, provided for convenience
-	LastError         string    // last occurred error message, if any
-	LastWarnings      []string  // last occured warnings, if any
-	UpdateTimestamp   int64     // latest update to this instance, unix timestamp in seconds
-	m                 sync.Mutex
+	CheckName          string
+	CheckID            ID
+	TotalRuns          uint64
+	TotalErrors        uint64
+	TotalWarnings      uint64
+	Metrics            int64
+	Events             int64
+	ServiceChecks      int64
+	TotalMetrics       int64
+	TotalEvents        int64
+	TotalServiceChecks int64
+	ExecutionTimes     [32]int64 // circular buffer of recent run durations, most recent at [(TotalRuns+31) % 32]
+	LastExecutionTime  int64     // most recent run duration, provided for convenience
+	LastError          string    // error that occured in the last run, if any
+	LastWarnings       []string  // warnings that occured in the last run, if any
+	UpdateTimestamp    int64     // latest update to this instance, unix timestamp in seconds
+	m                  sync.Mutex
 }
 
 // NewStats returns a new check stats instance
@@ -94,7 +102,7 @@ func NewStats(c Check) *Stats {
 }
 
 // Add tracks a new execution time
-func (cs *Stats) Add(t time.Duration, err error, warnings []error) {
+func (cs *Stats) Add(t time.Duration, err error, warnings []error, metricStats map[string]int64) {
 	cs.m.Lock()
 	defer cs.m.Unlock()
 
@@ -106,15 +114,36 @@ func (cs *Stats) Add(t time.Duration, err error, warnings []error) {
 	if err != nil {
 		cs.TotalErrors++
 		cs.LastError = err.Error()
+	} else {
+		cs.LastError = ""
 	}
+	cs.LastWarnings = []string{}
 	if len(warnings) != 0 {
-		cs.LastWarnings = []string{}
 		for _, w := range warnings {
 			cs.TotalWarnings++
 			cs.LastWarnings = append(cs.LastWarnings, w.Error())
 		}
 	}
 	cs.UpdateTimestamp = time.Now().Unix()
+
+	if m, ok := metricStats["Metrics"]; ok {
+		cs.Metrics = m
+		if cs.TotalMetrics <= 1000001 {
+			cs.TotalMetrics += m
+		}
+	}
+	if ev, ok := metricStats["Events"]; ok {
+		cs.Events = ev
+		if cs.TotalEvents <= 1000001 {
+			cs.TotalEvents += ev
+		}
+	}
+	if sc, ok := metricStats["ServiceChecks"]; ok {
+		cs.ServiceChecks = sc
+		if cs.TotalServiceChecks <= 1000001 {
+			cs.TotalServiceChecks += sc
+		}
+	}
 }
 
 // Equal determines whether the passed config is the same
@@ -181,14 +210,50 @@ func (c *Config) IsTemplate() bool {
 	return false
 }
 
-// GetTemplateVariables returns a slice of raw template variables
-// it found in a config template.
-// FIXME: only extracts from the first instance. Do we need more?
-func (c *Config) GetTemplateVariables() (vars [][]byte) {
-	if len(c.Instances) == 0 {
+// GetTemplateVariablesForInstance returns a slice of raw template variables
+// it found in a config instance template.
+func (c *Config) GetTemplateVariablesForInstance(i int) (vars [][]byte) {
+	if len(c.Instances) < i {
 		return vars
 	}
-	return tplVarRegex.FindAll(c.Instances[0], -1)
+	return tplVarRegex.FindAll(c.Instances[i], -1)
+}
+
+// MergeAdditionalTags merges additional tags to possible existing config tags
+func (c *ConfigData) MergeAdditionalTags(tags []string) error {
+	rawConfig := ConfigRawMap{}
+	err := yaml.Unmarshal(*c, &rawConfig)
+	if err != nil {
+		return err
+	}
+	rTags, _ := rawConfig["tags"].([]interface{})
+	// convert raw tags to string
+	cTags := make([]string, len(rTags))
+	for i, t := range rTags {
+		cTags[i] = fmt.Sprint(t)
+	}
+	tagList := append(cTags, tags...)
+	if len(tagList) == 0 {
+		return nil
+	}
+	// use set keys to remove duplicate
+	tagSet := make(map[string]struct{})
+	for _, t := range tagList {
+		tagSet[t] = struct{}{}
+	}
+	// override config tags
+	rawConfig["tags"] = []string{}
+	for k := range tagSet {
+		rawConfig["tags"] = append(rawConfig["tags"].([]string), k)
+	}
+	// modify original config
+	out, err := yaml.Marshal(&rawConfig)
+	if err != nil {
+		return err
+	}
+	*c = ConfigData(out)
+
+	return nil
 }
 
 // Digest returns an hash value representing the data stored in this configuration
