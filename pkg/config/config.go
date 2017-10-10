@@ -84,6 +84,7 @@ func init() {
 	// BUG(massi): make the listener_windows.go module actually use the following:
 	Datadog.SetDefault("cmd_pipe_name", `\\.\pipe\ddagent`)
 	Datadog.SetDefault("check_runners", int64(0))
+	Datadog.SetDefault("expvar_port", "5000")
 	if IsContainerized() {
 		Datadog.SetDefault("container_proc_root", "/host/proc")
 		Datadog.SetDefault("container_cgroup_root", "/host/sys/fs/cgroup/")

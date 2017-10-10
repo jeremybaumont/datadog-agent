@@ -7,10 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/datadog-agent/pkg/aggregator"
 	"github.com/DataDog/datadog-agent/pkg/collector/check"
 	"github.com/DataDog/datadog-agent/pkg/collector/py"
-	"github.com/DataDog/datadog-agent/pkg/config"
 	python "github.com/sbinet/go-python"
 )
 
@@ -86,8 +84,6 @@ func TestUpdateNumWorkers(t *testing.T) {
 	if checkType == pythonCheck {
 		// Initialize the python interpreter & the aggregator
 		state := py.Initialize(".", "../dist")
-		aggregator.InitAggregator(nil, "")
-
 		defer python.PyEval_RestoreThread(state)
 	}
 
@@ -219,15 +215,13 @@ func runPythonCheck() {
 
 	// Acquire a PythonCheck instance
 	check := py.NewPythonCheck("runner_test", checkClass)
-	config.Datadog.Set("foo_agent", "bar_agent")
-	defer config.Datadog.Set("foo_agent", nil)
 	e := check.Configure([]byte("foo_instance: bar_instance"), []byte("foo_init: bar_init"))
 	if check == nil || e != nil {
 		panic("Unable to acquire check instance")
 	}
 
 	// Run the check
-	e = check.Run() // acquires its own stickyLock
+	e = check.RunSimple() // acquires its own stickyLock
 	if e != nil {
 		panic("Unable to run check: " + e.Error())
 	}

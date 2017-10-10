@@ -80,7 +80,7 @@ func TestWork(t *testing.T) {
 }
 
 func TestLogging(t *testing.T) {
-	r := NewRunner(1)
+	r := NewRunner()
 	c := TestCheck{}
 	s := &check.Stats{
 		CheckID:   c.ID(),
