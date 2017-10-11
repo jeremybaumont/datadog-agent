@@ -237,7 +237,7 @@ func collectNetworkStats(containerID string, pid int, networks []dockerNetwork) 
 func findDockerNetworks(containerID string, pid int, netSettings *types.SummaryNetworkSettings) []dockerNetwork {
 	// Verify that we aren't using an older version of Docker that does
 	// not provider the network settings in container inspect.
-	if netSettings == nil || netSettings.Networks == nil {
+	if netSettings == nil || netSettings.Networks == nil || len(netSettings.Networks) == 0 {
 		log.Debugf("No network settings available from docker, defaulting to host network")
 		return []dockerNetwork{hostNetwork}
 	}
