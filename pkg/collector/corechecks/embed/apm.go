@@ -31,7 +31,9 @@ type apmCheckConf struct {
 
 // APMCheck keeps track of the running command
 type APMCheck struct {
-	cmd *exec.Cmd
+	cmd         *exec.Cmd
+	binPath     string
+	commandOpts []string
 }
 
 func (c *APMCheck) String() string {
@@ -40,6 +42,15 @@ func (c *APMCheck) String() string {
 
 // Run executes the check
 func (c *APMCheck) Run() error {
+	c.cmd = exec.Command(c.binPath, c.commandOpts...)
+
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("DD_API_KEY=%s", config.Datadog.GetString("api_key")))
+	env = append(env, fmt.Sprintf("DD_HOSTNAME=%s", getHostname()))
+	env = append(env, fmt.Sprintf("DD_DOGSTATSD_PORT=%s", config.Datadog.GetString("dogstatsd_port")))
+	env = append(env, fmt.Sprintf("DD_LOG_LEVEL=%s", config.Datadog.GetString("log_level")))
+	c.cmd.Env = env
+
 	// forward the standard output to the Agent logger
 	stdout, err := c.cmd.StdoutPipe()
 	if err != nil {
@@ -83,22 +94,22 @@ func (c *APMCheck) Configure(data check.ConfigData, initConfig check.ConfigData)
 		return err
 	}
 
-	binPath := ""
+	c.binPath = ""
 	defaultBinPath, defaultBinPathErr := getAPMAgentDefaultBinPath()
 	if checkConf.BinPath != "" {
 		if _, err := os.Stat(checkConf.BinPath); err == nil {
-			binPath = checkConf.BinPath
+			c.binPath = checkConf.BinPath
 		} else {
 			log.Warnf("Can't access apm binary at %s, falling back to default path at %s", checkConf.BinPath, defaultBinPath)
 		}
 	}
 
-	if binPath == "" {
+	if c.binPath == "" {
 		if defaultBinPathErr != nil {
 			return defaultBinPathErr
 		}
 
-		binPath = defaultBinPath
+		c.binPath = defaultBinPath
 	}
 
 	// let the trace-agent use its own config file provided by the Agent package
@@ -108,21 +119,12 @@ func (c *APMCheck) Configure(data check.ConfigData, initConfig check.ConfigData)
 		configFile = path.Join(config.FileUsedDir(), "trace-agent.conf")
 	}
 
-	commandOpts := []string{}
+	c.commandOpts = []string{}
 
 	// if the trace-agent.conf file is available, use it
 	if _, err := os.Stat(configFile); !os.IsNotExist(err) {
-		commandOpts = append(commandOpts, fmt.Sprintf("-ddconfig=%s", configFile))
+		c.commandOpts = append(c.commandOpts, fmt.Sprintf("-ddconfig=%s", configFile))
 	}
-
-	c.cmd = exec.Command(binPath, commandOpts...)
-
-	env := os.Environ()
-	env = append(env, fmt.Sprintf("DD_API_KEY=%s", config.Datadog.GetString("api_key")))
-	env = append(env, fmt.Sprintf("DD_HOSTNAME=%s", getHostname()))
-	env = append(env, fmt.Sprintf("DD_DOGSTATSD_PORT=%s", config.Datadog.GetString("dogstatsd_port")))
-	env = append(env, fmt.Sprintf("DD_LOG_LEVEL=%s", config.Datadog.GetString("log_level")))
-	c.cmd.Env = env
 
 	return nil
 }
@@ -140,6 +142,10 @@ func (c *APMCheck) ID() check.ID {
 
 // Stop sends a termination signal to the APM process
 func (c *APMCheck) Stop() {
+	if c.cmd == nil {
+		return
+	}
+
 	err := c.cmd.Process.Signal(os.Kill)
 	if err != nil {
 		log.Errorf("unable to stop APM check: %s", err)

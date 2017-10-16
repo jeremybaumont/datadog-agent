@@ -33,6 +33,15 @@ func (c *LogsCheck) String() string {
 
 // Run executes the check
 func (c *LogsCheck) Run() error {
+	here, _ := osext.ExecutableFolder()
+	confd := config.Datadog.GetString("confd_path")
+	bin := path.Join(here, "logs-agent")
+
+	c.cmd = exec.Command(
+		bin,
+		fmt.Sprintf("-ddconfig=%s", confd),
+	)
+
 	// forward the standard output to the Agent logger
 	stdout, err := c.cmd.StdoutPipe()
 	if err != nil {
@@ -64,17 +73,8 @@ func (c *LogsCheck) Run() error {
 	return retryExitError(c.cmd.Wait())
 }
 
-// Configure the LogsCheck
+// Configure the LogsCheck. nothing to do
 func (c *LogsCheck) Configure(data check.ConfigData, initConfig check.ConfigData) error {
-	here, _ := osext.ExecutableFolder()
-	confd := config.Datadog.GetString("confd_path")
-	bin := path.Join(here, "logs-agent")
-
-	c.cmd = exec.Command(
-		bin,
-		fmt.Sprintf("-ddconfig=%s", confd),
-	)
-
 	return nil
 }
 
@@ -94,6 +94,10 @@ func (c *LogsCheck) ID() check.ID {
 
 // Stop sends a termination signal to the Logs process
 func (c *LogsCheck) Stop() {
+	if c.cmd == nil {
+		return
+	}
+
 	err := c.cmd.Process.Signal(os.Kill)
 	if err != nil {
 		log.Errorf("unable to stop Logs check: %s", err)

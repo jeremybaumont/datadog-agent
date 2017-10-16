@@ -35,8 +35,10 @@ type processAgentCheckConf struct {
 
 // ProcessAgentCheck keeps track of the running command
 type ProcessAgentCheck struct {
-	enabled bool
-	cmd     *exec.Cmd
+	enabled     bool
+	cmd         *exec.Cmd
+	binPath     string
+	commandOpts []string
 }
 
 func (c *ProcessAgentCheck) String() string {
@@ -49,6 +51,15 @@ func (c *ProcessAgentCheck) Run() error {
 		log.Info("Not running process_agent because 'enabled' is false in init_config")
 		return nil
 	}
+
+	c.cmd = exec.Command(c.binPath, c.commandOpts...)
+
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("DD_API_KEY=%s", config.Datadog.GetString("api_key")))
+	env = append(env, fmt.Sprintf("DD_HOSTNAME=%s", getHostname()))
+	env = append(env, fmt.Sprintf("DD_DOGSTATSD_PORT=%s", config.Datadog.GetString("dogstatsd_port")))
+	env = append(env, fmt.Sprintf("DD_LOG_LEVEL=%s", config.Datadog.GetString("log_level")))
+	c.cmd.Env = env
 
 	// forward the standard output to the Agent logger
 	stdout, err := c.cmd.StdoutPipe()
@@ -99,21 +110,21 @@ func (c *ProcessAgentCheck) Configure(data check.ConfigData, initConfig check.Co
 		return err
 	}
 
-	binPath := ""
+	c.binPath = ""
 	defaultBinPath, defaultBinPathErr := getProcessAgentDefaultBinPath()
 	if checkConf.BinPath != "" {
 		if _, err := os.Stat(checkConf.BinPath); err == nil {
-			binPath = checkConf.BinPath
+			c.binPath = checkConf.BinPath
 		} else {
 			log.Warnf("Can't access process-agent binary at %s, falling back to default path at %s", checkConf.BinPath, defaultBinPath)
 		}
 	}
 
-	if binPath == "" {
+	if c.binPath == "" {
 		if defaultBinPathErr != nil {
 			return defaultBinPathErr
 		}
-		binPath = defaultBinPath
+		c.binPath = defaultBinPath
 	}
 
 	// let the process agent use its own config file provided by the Agent package
@@ -123,21 +134,12 @@ func (c *ProcessAgentCheck) Configure(data check.ConfigData, initConfig check.Co
 		configFile = path.Join(config.FileUsedDir(), "process-agent.conf")
 	}
 
-	commandOpts := []string{}
+	c.commandOpts = []string{}
 
 	// if the process-agent.conf file is available, use it
 	if _, err := os.Stat(configFile); !os.IsNotExist(err) {
-		commandOpts = append(commandOpts, fmt.Sprintf("-ddconfig=%s", configFile))
+		c.commandOpts = append(c.commandOpts, fmt.Sprintf("-ddconfig=%s", configFile))
 	}
-
-	c.cmd = exec.Command(binPath, commandOpts...)
-
-	env := os.Environ()
-	env = append(env, fmt.Sprintf("DD_API_KEY=%s", config.Datadog.GetString("api_key")))
-	env = append(env, fmt.Sprintf("DD_HOSTNAME=%s", getHostname()))
-	env = append(env, fmt.Sprintf("DD_DOGSTATSD_PORT=%s", config.Datadog.GetString("dogstatsd_port")))
-	env = append(env, fmt.Sprintf("DD_LOG_LEVEL=%s", config.Datadog.GetString("log_level")))
-	c.cmd.Env = env
 
 	return nil
 }
@@ -158,7 +160,7 @@ func (c *ProcessAgentCheck) ID() check.ID {
 
 // Stop sends a termination signal to the process-agent process
 func (c *ProcessAgentCheck) Stop() {
-	if !c.enabled {
+	if !c.enabled || c.cmd == nil {
 		return
 	}
 
