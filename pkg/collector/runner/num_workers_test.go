@@ -14,12 +14,12 @@ import (
 
 /****************** Testing configuration ****************************/
 
-var testingEfficiency = true // Run this test (should be false normally)
-var static = true            // Run with default num workers (vs dynamic)
-var prettyOutput = false     // Labelled test results
-var checkType = pythonCheck  // Which type of check to run (busyWait, lazyWait, or pythonCheck)
-var numIntervals = 0         // How many times to repeat each check (for the time tests)
-var memoryTest = false       // After the time tests, run the memory test
+var testingEfficiency = false // Run this test (should be false normally)
+var static = false            // Run with default num workers (vs dynamic)
+var prettyOutput = false      // Labelled test results
+var checkType = busyWait      // Which type of check to run (busyWait, lazyWait, or pythonCheck)
+var numIntervals = 10         // How many times to repeat each check (for the time tests)
+var memoryTest = false        // After the time tests, run the memory test
 
 /*********************************************************************/
 
@@ -28,18 +28,12 @@ type CheckType int
 const (
 	busyWait    CheckType = iota
 	lazyWait    CheckType = iota
-	pythonCheck CheckType = iota
+	pythonCheck CheckType = iota // BUG: testing the python checks crashes every so often
 )
 
 type stickyLock struct {
 	gstate python.PyGILState
 	locked uint32 // Flag set to 1 if the lock is locked, 0 otherwise
-}
-
-func (sl *stickyLock) unlock() {
-	atomic.StoreUint32(&sl.locked, 0)
-	python.PyGILState_Release(sl.gstate)
-	runtime.UnlockOSThread()
 }
 
 // NumWorkersCheck implements the 'Check' interface via the TestCheck struct defined in runner_test.go
@@ -81,8 +75,9 @@ func TestUpdateNumWorkers(t *testing.T) {
 		return
 	}
 
+	t.Logf("Testing efficiency on a machine with %v cores", runtime.NumCPU())
 	if checkType == pythonCheck {
-		// Initialize the python interpreter & the aggregator
+		// Initialize the python interpreter
 		state := py.Initialize(".", "../dist")
 		defer python.PyEval_RestoreThread(state)
 	}
@@ -211,11 +206,15 @@ func runPythonCheck() {
 		python.PyErr_Print()
 		panic("Unable to load TestCheck class")
 	}
-	gstate.unlock()
+
+	// Unlock the sticky lock
+	atomic.StoreUint32(&gstate.locked, 0)
+	python.PyGILState_Release(gstate.gstate)
+	runtime.UnlockOSThread()
 
 	// Acquire a PythonCheck instance
-	check := py.NewPythonCheck("runner_test", checkClass)
-	e := check.Configure([]byte("foo_instance: bar_instance"), []byte("foo_init: bar_init"))
+	check := py.NewPythonCheck("runner_test", checkClass)                                    // acquires its own stickyLock
+	e := check.Configure([]byte("foo_instance: bar_instance"), []byte("foo_init: bar_init")) // acquires its own stickyLock
 	if check == nil || e != nil {
 		panic("Unable to acquire check instance")
 	}

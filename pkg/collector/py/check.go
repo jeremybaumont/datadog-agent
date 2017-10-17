@@ -11,12 +11,11 @@ import (
 	"runtime"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/DataDog/datadog-agent/pkg/aggregator"
 	"github.com/DataDog/datadog-agent/pkg/collector/check"
 	"github.com/DataDog/datadog-agent/pkg/config"
 	"github.com/sbinet/go-python"
+	yaml "gopkg.in/yaml.v2"
 
 	log "github.com/cihub/seelog"
 )
@@ -97,6 +96,7 @@ func (c *PythonCheck) RunSimple() error {
 	log.Debugf("Running python check %s %s", c.ModuleName, c.id)
 	emptyTuple := python.PyTuple_New(0)
 	defer emptyTuple.DecRef()
+
 	result := c.instance.CallMethod("run", emptyTuple)
 	log.Debugf("Run returned for %s %s", c.ModuleName, c.id)
 	if result == nil {
@@ -275,7 +275,6 @@ func (c *PythonCheck) Configure(data check.ConfigData, initConfig check.ConfigDa
 
 	c.instance = instance
 	c.config = kwargs
-
 	return nil
 }
 
